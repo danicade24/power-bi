@@ -1,0 +1,61 @@
+.scorecard-container {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: #333;
+  font-size: 13px;
+}
+.scorecard-container .scorecard-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 40px;
+  /* Altura mínima de la fila */
+  border-bottom: 1px solid #eeeeee;
+  /* Línea divisoria entre métricas parecida a la imagen */
+  background-color: #fafafa;
+}
+.scorecard-container .scorecard-row:nth-child(even) {
+  background-color: #ffffff;
+  /* Alternancia de fondo en la tabla */
+}
+.scorecard-container .scorecard-row .col-metric {
+  flex: 0 0 150px;
+  /* Ancho fijo para el título de la métrica */
+  padding-left: 10px;
+  font-weight: 600;
+}
+.scorecard-container .scorecard-row .col-status {
+  flex: 0 0 200px;
+  /* Ancho fijo para el texto de estatus o el valor central */
+  text-align: left;
+  padding-left: 10px;
+  color: #555;
+  /* Texto un poco más tenue como en la tabla */
+}
+.scorecard-container .scorecard-row .col-visual {
+  flex: 1 1 auto;
+  /* El gráfico ocupa el espacio restante a la derecha */
+  height: 40px;
+  display: flex;
+  align-items: center;
+  padding-right: 15px;
+  width: 100%;
+  /* Asegurar que empuje el espacio y renderice */
+  min-width: 150px;
+}
+.scorecard-container .scorecard-row .col-visual .bar-svg {
+  /* El viewBox en TS controla las proporciones internamente. */
+  display: block;
+}
+.scorecard-container .scorecard-row .col-visual .segment {
+  transition: opacity 0.2s;
+}
+.scorecard-container .scorecard-row .col-visual .segment:hover {
+  opacity: 0.8;
+}
+.scorecard-container .scorecard-row .col-visual .marker {
+  pointer-events: none;
+}
+

@@ -1,0 +1,35 @@
+{
+    "dataRoles": [
+        {
+            "displayName": "Métrica (Categoría)",
+            "name": "metric",
+            "kind": "Grouping"
+        },
+        {
+            "displayName": "Texto de Estatus",
+            "name": "statusText",
+            "kind": "Grouping"
+        },
+        {
+            "displayName": "Valor del Marcador",
+            "name": "markerValue",
+            "kind": "Measure"
+        }
+    ],
+    "objects": {},
+    "dataViewMappings": [
+        {
+            "table": {
+                "rows": {
+                    "select": [
+                        { "for": { "in": "metric" } },
+                        { "for": { "in": "statusText" } },
+                        { "for": { "in": "markerValue" } }
+                    ],
+                    "dataReductionAlgorithm": { "top": {} }
+                }
+            }
+        }
+    ],
+    "privileges": []
+}
