@@ -5,8 +5,8 @@ import FormattingSettingsSlice = formattingSettings.Slice;
 import FormattingSettingsModel = formattingSettings.Model;
 
 export class ScaleSettingsCard extends FormattingSettingsCard {
-    minValue = new formattingSettings.NumUpDown({ name: "minValue", displayName: "Valor mínimo (Inicio de gráfica)", value: 0 });
-    maxValue = new formattingSettings.NumUpDown({ name: "maxValue", displayName: "Valor máximo (Fin de gráfica)", value: 100 });
+    minValue = new formattingSettings.NumUpDown({ name: "minValue", displayName: "Valor mínimo (Inicio de gráfica)", value: null as any });
+    maxValue = new formattingSettings.NumUpDown({ name: "maxValue", displayName: "Valor máximo (Fin de gráfica)", value: null as any });
     unit = new formattingSettings.TextInput({ name: "unit", displayName: "Unidad", value: "", placeholder: "e.g. %" });
 
     name = "scaleSettings";
@@ -59,7 +59,8 @@ export class SegmentColorsCard extends FormattingSettingsCard {
     }
 
     public getActiveColors(): string[] {
-        return this.slices.map(c => (c as formattingSettings.ColorPicker).value.value);
+        return [this.c1, this.c2, this.c3, this.c4, this.c5, this.c6]
+            .map(c => c.value.value);
     }
 }
 

@@ -206,8 +206,31 @@ export class Visual implements IVisual {
         const showLegend = s.bar.showLegend.value as boolean;
         const unit = (s.scale.unit.value as string) ?? "";
         
-        let minVal = (s.scale.minValue.value as number) ?? 0;
-        let maxVal = (s.scale.maxValue.value as number) ?? 100;
+        let dynamicMin = Infinity;
+        let dynamicMax = -Infinity;
+        
+        indicators.forEach(ind => {
+            if (ind.value > dynamicMax) dynamicMax = ind.value;
+            if (ind.value < dynamicMin) dynamicMin = ind.value;
+            if (ind.thresholdsData) {
+                ind.thresholdsData.forEach(t => {
+                    if (t > dynamicMax) dynamicMax = t;
+                    if (t < dynamicMin) dynamicMin = t;
+                });
+            }
+        });
+
+        if (dynamicMax === -Infinity) dynamicMax = 100;
+        if (dynamicMin === Infinity) dynamicMin = 0;
+
+        let minVal = (s.scale.minValue.value != null && s.scale.minValue.value !== ("" as any)) 
+            ? s.scale.minValue.value as number 
+            : Math.min(0, dynamicMin);
+            
+        let maxVal = (s.scale.maxValue.value != null && s.scale.maxValue.value !== ("" as any)) 
+            ? s.scale.maxValue.value as number 
+            : Math.max(minVal + 10, dynamicMax);
+
         if (minVal >= maxVal) maxVal = minVal + 100;
         const range = maxVal - minVal;
         const ascending = s.order.ascending.value as boolean;
