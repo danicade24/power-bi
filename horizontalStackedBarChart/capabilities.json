@@ -1,35 +1,177 @@
 {
-    "dataRoles": [
+  "dataRoles": [
+    {
+      "name": "category",
+      "kind": "Grouping",
+      "displayName": "Indicador (nombre)",
+      "description": "Nombre del KPI o indicador a mostrar en la barra"
+    },
+    {
+      "name": "measure",
+      "kind": "Measure",
+      "displayName": "Valor actual",
+      "description": "Valor numérico actual del indicador (posición del marcador)"
+    },
+    {
+      "name": "period",
+      "kind": "Grouping",
+      "displayName": "Período (mes/año)",
+      "description": "Opcional: columna de fecha o período para mostrar historial"
+    },
+    {
+      "name": "thresholds",
+      "kind": "Measure",
+      "displayName": "Umbrales",
+      "description": "Valores para definir los límites de los umbrales dinámicamente desde los datos"
+    }
+  ],
+
+  "dataViewMappings": [
+    {
+      "conditions": [
         {
-            "displayName": "Métrica (Categoría)",
-            "name": "metric",
-            "kind": "Grouping"
-        },
-        {
-            "displayName": "Texto de Estatus",
-            "name": "statusText",
-            "kind": "Grouping"
-        },
-        {
-            "displayName": "Valor del Marcador",
-            "name": "markerValue",
-            "kind": "Measure"
+          "category": { "max": 1 },
+          "measure": { "max": 1 },
+          "period": { "max": 1 },
+          "thresholds": {}
         }
-    ],
-    "objects": {},
-    "dataViewMappings": [
-        {
-            "table": {
-                "rows": {
-                    "select": [
-                        { "for": { "in": "metric" } },
-                        { "for": { "in": "statusText" } },
-                        { "for": { "in": "markerValue" } }
-                    ],
-                    "dataReductionAlgorithm": { "top": {} }
-                }
-            }
+      ],
+      "categorical": {
+        "categories": {
+          "for": { "in": "category" },
+          "dataReductionAlgorithm": { "top": { "count": 50 } }
+        },
+        "values": {
+          "select": [
+            { "bind": { "to": "measure" } },
+            { "bind": { "to": "thresholds" } }
+          ]
         }
-    ],
-    "privileges": []
+      }
+    }
+  ],
+
+  "objects": {
+
+    "scaleSettings": {
+      "displayName": "Límites y Escala",
+      "properties": {
+        "minValue": {
+          "displayName": "Valor Mínimo (Inicio)",
+          "type": { "numeric": true }
+        },
+        "maxValue": {
+          "displayName": "Valor Máximo (Fin)",
+          "type": { "numeric": true }
+        },
+        "unit": {
+          "displayName": "Unidad",
+          "type": { "text": true }
+        }
+      }
+    },
+
+    "orderSettings": {
+      "displayName": "Orden de Segmentos",
+      "properties": {
+        "ascending": {
+          "displayName": "Colores Ascendentes",
+          "type": { "bool": true }
+        }
+      }
+    },
+
+    "thresholdsSettings": {
+      "displayName": "Líneas de Umbral",
+      "properties": {
+        "t1": { "displayName": "Umbral 1", "type": { "numeric": true } },
+        "t2": { "displayName": "Umbral 2", "type": { "numeric": true } },
+        "t3": { "displayName": "Umbral 3", "type": { "numeric": true } },
+        "t4": { "displayName": "Umbral 4", "type": { "numeric": true } },
+        "t5": { "displayName": "Umbral 5", "type": { "numeric": true } }
+      }
+    },
+
+    "segmentColors": {
+      "displayName": "Colores de Segmentos",
+      "properties": {
+        "c1": { "displayName": "Color Segmento 1", "type": { "fill": { "solid": { "color": true } } } },
+        "c2": { "displayName": "Color Segmento 2", "type": { "fill": { "solid": { "color": true } } } },
+        "c3": { "displayName": "Color Segmento 3", "type": { "fill": { "solid": { "color": true } } } },
+        "c4": { "displayName": "Color Segmento 4", "type": { "fill": { "solid": { "color": true } } } },
+        "c5": { "displayName": "Color Segmento 5", "type": { "fill": { "solid": { "color": true } } } },
+        "c6": { "displayName": "Color Segmento 6", "type": { "fill": { "solid": { "color": true } } } }
+      }
+    },
+
+    "markerSettings": {
+      "displayName": "Marcador",
+      "properties": {
+        "color": {
+          "displayName": "Color",
+          "type": { "fill": { "solid": { "color": true } } }
+        },
+        "width": {
+          "displayName": "Alto del marcador (px)",
+          "type": { "numeric": true }
+        },
+        "overrideValue": {
+          "displayName": "Valor en eje X (Manual)",
+          "type": { "numeric": true }
+        },
+        "showLabel": {
+          "displayName": "Mostrar etiqueta del valor",
+          "type": { "bool": true }
+        }
+      }
+    },
+
+    "barSettings": {
+      "displayName": "Configuración de Barra",
+      "properties": {
+        "height": {
+          "displayName": "Alto de la barra (px)",
+          "type": { "numeric": true }
+        },
+        "borderRadius": {
+          "displayName": "Esquinas redondeadas (px)",
+          "type": { "numeric": true }
+        },
+        "showThresholdTicks": {
+          "displayName": "Mostrar marcas de los umbrales",
+          "type": { "bool": true }
+        },
+        "showLegend": {
+          "displayName": "Mostrar leyenda",
+          "type": { "bool": true }
+        }
+      }
+    },
+
+    "labelSettings": {
+      "displayName": "Etiquetas Generales",
+      "properties": {
+        "fontSize": {
+          "displayName": "Tamaño de fuente",
+          "type": { "numeric": true }
+        },
+        "fontColor": {
+          "displayName": "Color de fuente",
+          "type": { "fill": { "solid": { "color": true } } }
+        },
+        "showIndicatorName": {
+          "displayName": "Mostrar nombre del indicador",
+          "type": { "bool": true }
+        }
+      }
+    }
+
+  },
+
+  "supportsHighlight": false,
+  "supportsKeyboardFocus": false,
+  "sorting": {
+    "default": {}
+  },
+  "privileges": []
 }
