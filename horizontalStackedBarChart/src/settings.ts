@@ -100,7 +100,7 @@ export class MarkerSettingsCard extends FormattingSettingsCard {
         options: { minValue: { type: powerbi.visuals.ValidatorType.Min, value: 8 } }
     });
     overrideValue = new formattingSettings.NumUpDown({ name: "overrideValue", displayName: "Valor en eje X (Manual)", value: null as any });
-    showLabel = new formattingSettings.ToggleSwitch({ name: "showLabel", displayName: "Mostrar etiqueta", value: true });
+    showLabel = new formattingSettings.ToggleSwitch({ name: "showLabel", displayName: "Mostrar etiqueta", value: false });
 
     name = "markerSettings";
     displayName = "Marcador";
@@ -110,8 +110,8 @@ export class MarkerSettingsCard extends FormattingSettingsCard {
 export class BarSettingsCard extends FormattingSettingsCard {
     height = new formattingSettings.NumUpDown({ name: "height", displayName: "Alto de barra", value: 20 });
     borderRadius = new formattingSettings.NumUpDown({ name: "borderRadius", displayName: "Esquinas redondeadas", value: 4 });
-    showThresholdTicks = new formattingSettings.ToggleSwitch({ name: "showThresholdTicks", displayName: "Mostrar marcas (ticks)", value: true });
-    showLegend = new formattingSettings.ToggleSwitch({ name: "showLegend", displayName: "Mostrar leyenda", value: true });
+    showThresholdTicks = new formattingSettings.ToggleSwitch({ name: "showThresholdTicks", displayName: "Mostrar marcas (ticks)", value: false });
+    showLegend = new formattingSettings.ToggleSwitch({ name: "showLegend", displayName: "Mostrar leyenda", value: false });
 
     name = "barSettings";
     displayName = "Configuración de Barra";
@@ -121,7 +121,7 @@ export class BarSettingsCard extends FormattingSettingsCard {
 export class LabelSettingsCard extends FormattingSettingsCard {
     fontSize = new formattingSettings.NumUpDown({ name: "fontSize", displayName: "Tamaño", value: 12 });
     fontColor = new formattingSettings.ColorPicker({ name: "fontColor", displayName: "Color", value: { value: "#333333" } });
-    showIndicatorName = new formattingSettings.ToggleSwitch({ name: "showIndicatorName", displayName: "Mostrar nombre", value: true });
+    showIndicatorName = new formattingSettings.ToggleSwitch({ name: "showIndicatorName", displayName: "Mostrar nombre", value: false });
 
     name = "labelSettings";
     displayName = "Etiquetas Generales";

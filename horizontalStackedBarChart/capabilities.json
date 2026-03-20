@@ -24,6 +24,11 @@
       "displayName": "Umbrales",
       "name": "thresholds",
       "kind": "Measure"
+    },
+    {
+      "displayName": "Texto Formateado",
+      "name": "formatText",
+      "kind": "Measure"
     }
   ],
 
@@ -35,7 +40,8 @@
           "target": { "min": 0, "max": 1 },
           "min": { "min": 0, "max": 1 },
           "max": { "min": 0, "max": 1 },
-          "thresholds": { "min": 0 }
+          "thresholds": { "min": 0 },
+          "formatText": { "min": 0, "max": 1 }
         }
       ],
       "categorical": {
@@ -45,7 +51,8 @@
             { "bind": { "to": "min" } },
             { "bind": { "to": "max" } },
             { "bind": { "to": "target" } },
-            { "bind": { "to": "thresholds" } }
+            { "bind": { "to": "thresholds" } },
+            { "bind": { "to": "formatText" } }
           ]
         }
       }

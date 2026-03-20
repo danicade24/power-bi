@@ -6,11 +6,11 @@ import * as d3 from "d3";
 
 import { VisualSettings } from "./settings";
 
-import VisualConstructorOptions   = powerbi.extensibility.visual.VisualConstructorOptions;
-import VisualUpdateOptions        = powerbi.extensibility.visual.VisualUpdateOptions;
-import IVisual                    = powerbi.extensibility.visual.IVisual;
-import IVisualHost                = powerbi.extensibility.visual.IVisualHost;
-import DataView                   = powerbi.DataView;
+import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
+import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
+import IVisual = powerbi.extensibility.visual.IVisual;
+import IVisualHost = powerbi.extensibility.visual.IVisualHost;
+import DataView = powerbi.DataView;
 
 interface SingleIndicatorData {
     value: number;
@@ -18,11 +18,12 @@ interface SingleIndicatorData {
     dataMin?: number | null;
     dataMax?: number | null;
     dataThresholds: number[];
+    formatText?: string | null;
 }
 
 interface Segment {
-    start: number;    
-    end:   number;    
+    start: number;
+    end: number;
     color: string;
 }
 
@@ -36,7 +37,7 @@ export class Visual implements IVisual {
     constructor(options: VisualConstructorOptions) {
         this.host = options.host;
         this.formattingSettingsService = new FormattingSettingsService();
-        
+
         this.container = d3
             .select(options.element)
             .append("svg")
@@ -75,12 +76,13 @@ export class Visual implements IVisual {
 
     private extractData(dataView: DataView): SingleIndicatorData | null {
         const cat = dataView.categorical;
-        
+
         let measureCol: powerbi.DataViewValueColumn;
         let targetCol: powerbi.DataViewValueColumn;
         let minCol: powerbi.DataViewValueColumn;
         let maxCol: powerbi.DataViewValueColumn;
         let thresholdCols: powerbi.DataViewValueColumn[] = [];
+        let formatTextStr: string | null = null;
 
         cat.values?.forEach(valueCol => {
             if (valueCol.source.roles["measure"]) measureCol = valueCol;
@@ -88,6 +90,10 @@ export class Visual implements IVisual {
             if (valueCol.source.roles["min"]) minCol = valueCol;
             if (valueCol.source.roles["max"]) maxCol = valueCol;
             if (valueCol.source.roles["thresholds"]) thresholdCols.push(valueCol);
+            if (valueCol.source.roles["formatText"]) {
+                const tv = valueCol.values[0];
+                formatTextStr = tv != null ? String(tv) : null;
+            }
         });
 
         if (!measureCol) return null;
@@ -108,7 +114,8 @@ export class Visual implements IVisual {
             target: getVal(targetCol),
             dataMin: getVal(minCol),
             dataMax: getVal(maxCol),
-            dataThresholds
+            dataThresholds,
+            formatText: formatTextStr
         };
     }
 
@@ -128,7 +135,7 @@ export class Visual implements IVisual {
         const validThresholds = tValues
             .filter(v => v > minVal && v < maxVal)
             .sort((a, b) => a - b);
-        
+
         const marks = [minVal, ...validThresholds, maxVal];
         const numSegments = marks.length - 1;
 
@@ -138,7 +145,7 @@ export class Visual implements IVisual {
         for (let i = 0; i < numSegments; i++) {
             const relativeMid = numSegments > 1 ? i / (numSegments - 1) : 1;
             const validRelativeMid = Math.max(0, Math.min(1, relativeMid));
-            
+
             let color = manualColors[i];
             if (!color || color.trim() === "") {
                 color = colorScale(validRelativeMid);
@@ -150,7 +157,7 @@ export class Visual implements IVisual {
                 color: color
             });
         }
-        
+
         return segs;
     }
 
@@ -187,10 +194,10 @@ export class Visual implements IVisual {
         const showTicks = s.bar.showThresholdTicks.value as boolean;
         const showLegend = s.bar.showLegend.value as boolean;
         const unit = (s.scale.unit.value as string) ?? "";
-        
+
         let dynamicMin = indicator.value;
         let dynamicMax = indicator.value;
-        
+
         const rawManualThresholds = this.settings.thresholdsConfig.getActiveThresholdsOrNulls();
         const manualThresholds = rawManualThresholds.filter((t): t is number => t != null);
 
@@ -200,7 +207,7 @@ export class Visual implements IVisual {
         }
         if (indicator.dataMax != null && !isNaN(indicator.dataMax) && indicator.dataMax > dynamicMax) dynamicMax = indicator.dataMax;
         if (indicator.dataMin != null && !isNaN(indicator.dataMin) && indicator.dataMin < dynamicMin) dynamicMin = indicator.dataMin;
-        
+
         indicator.dataThresholds.forEach(t => {
             if (!isNaN(t)) {
                 if (t > dynamicMax) dynamicMax = t;
@@ -219,11 +226,11 @@ export class Visual implements IVisual {
             dynamicMax = dynamicMin + 1;
         }
 
-        let minVal = (s.scale.minValue.value != null && s.scale.minValue.value !== ("" as any)) 
+        let minVal = (s.scale.minValue.value != null && s.scale.minValue.value !== ("" as any))
             ? Number(s.scale.minValue.value)
             : (indicator.dataMin != null && !isNaN(indicator.dataMin) ? indicator.dataMin : dynamicMin);
-            
-        let maxVal = (s.scale.maxValue.value != null && s.scale.maxValue.value !== ("" as any)) 
+
+        let maxVal = (s.scale.maxValue.value != null && s.scale.maxValue.value !== ("" as any))
             ? Number(s.scale.maxValue.value)
             : (indicator.dataMax != null && !isNaN(indicator.dataMax) ? indicator.dataMax : dynamicMax);
 
@@ -234,26 +241,65 @@ export class Visual implements IVisual {
         const globalSet = new Set<number>();
         dataThresholds.forEach(t => globalSet.add(t));
         manualThresholds.forEach(t => globalSet.add(t));
-        
+
         const globalResolvedThresholds = Array.from(globalSet).sort((a, b) => a - b);
 
-        const margin = { top: 10, right: 30, bottom: 20, left: 16 };
-        if (showName) margin.top += fontSize + 10;
-        
-        const legendWidth = showLegend ? 110 : 0;
-        const drawWidth = Math.max(1, viewWidth - margin.left - margin.right - legendWidth);
+        // Responsive scaling multiplier
+        const widthScale = Math.min(1.5, Math.max(0.8, viewWidth / 400));
+
+        const margin = { top: 10, right: 30, bottom: 20, left: 6 };
+        if (showName) margin.top += Math.round((fontSize + 10) * widthScale);
+
+        const hasFormatText = !!indicator.formatText;
+        const leftPanelWidth = hasFormatText ? 75 : 0;
+        const legendWidth = showLegend ? Math.round(110 * widthScale) : 0;
+        const drawWidth = Math.max(1, viewWidth - margin.left - margin.right - leftPanelWidth - legendWidth);
         const scaleX = d3.scaleLinear().domain([minVal, maxVal]).range([0, drawWidth]).clamp(true);
+
+        // Pre-calculate legend height to center bar vertically against it
+        const numSegments = globalResolvedThresholds.length + 1;
+        const legendTotalHeight = showLegend ? numSegments * Math.round(16 * widthScale) : 0;
 
         let currentY = margin.top;
 
         const mainG = this.container.append("g")
             .attr("transform", `translate(${margin.left}, 0)`);
 
-        const entryG = mainG.append("g")
-            .attr("transform", `translate(0, ${currentY})`);
-
         const overrideValue = s.marker.overrideValue.value;
         const finalValue = (overrideValue != null && overrideValue !== ("" as any)) ? overrideValue as number : indicator.value;
+
+        // If legend is shown and taller than bar, center bar vertically relative to legend
+        const barOffsetY = (showLegend && legendTotalHeight > barH) ? Math.round((legendTotalHeight - barH) / 2) : 0;
+
+        // Left KPI Panel — only shown when formatText field is filled
+        if (hasFormatText) {
+            console.log('FORMAT_TEXT_VALUE:', indicator.formatText);
+            const kpiG = mainG.append("g")
+                .attr("transform", `translate(0, ${currentY + barOffsetY})`);
+
+            kpiG.append("text")
+                .attr("x", 0)
+                .attr("y", 0)
+                .attr("dominant-baseline", "hanging")
+                .attr("text-anchor", "start")
+                .attr("font-size", "16px")
+                .attr("font-weight", "bold")
+                .attr("fill", fontColor)
+                .text(indicator.formatText);
+                
+            kpiG.append("text")
+                .attr("x", 0)
+                .attr("y", 20)
+                .attr("dominant-baseline", "hanging")
+                .attr("text-anchor", "start")
+                .attr("font-size", "10px")
+                .attr("font-weight", "600")
+                .attr("fill", "#777")
+                .text("Objetivo");
+        }
+
+        const entryG = mainG.append("g")
+            .attr("transform", `translate(${leftPanelWidth}, ${currentY + barOffsetY})`);
 
         if (showName) {
             const dataView = options.dataViews?.[0];
@@ -263,21 +309,10 @@ export class Visual implements IVisual {
             entryG.append("text")
                 .attr("x", 0)
                 .attr("y", -8)
-                .attr("font-size", `${fontSize}px`)
+                .attr("font-size", `${Math.round(fontSize * widthScale)}px`)
                 .attr("font-weight", "500")
                 .attr("fill", fontColor)
                 .text(indicatorName);
-
-            if (showLabel) {
-                entryG.append("text")
-                    .attr("x", drawWidth)
-                    .attr("y", -8)
-                    .attr("font-size", `${fontSize - 1}px`)
-                    .attr("fill", fontColor)
-                    .attr("opacity", 0.7)
-                    .attr("text-anchor", "end")
-                    .text(`${finalValue}${unit}`);
-            }
         }
 
         const ascending = s.order.ascending.value as boolean;
@@ -289,18 +324,17 @@ export class Visual implements IVisual {
 
         // Tachometer right legend
         if (showLegend) {
-            const legendG = mainG.append("g").attr("transform", `translate(${drawWidth + 20}, ${currentY + 5})`);
-            
-            const numSegments = segments.length;
+            const legendG = mainG.append("g").attr("transform", `translate(${leftPanelWidth + drawWidth + 20}, ${currentY + 5})`);
+
             let legY = 0;
-            
+
             segments.forEach((seg, i) => {
                 let labelStr = "";
-                if (numSegments === 1) {
+                if (segments.length === 1) {
                     labelStr = `${seg.start}${unit} - ${seg.end}${unit}`;
                 } else if (i === 0) {
                     labelStr = `≤ ${seg.end}${unit}`;
-                } else if (i === numSegments - 1) {
+                } else if (i === segments.length - 1) {
                     labelStr = `≥ ${seg.start}${unit}`;
                 } else {
                     labelStr = `${seg.start} - ${seg.end}${unit}`;
@@ -309,20 +343,20 @@ export class Visual implements IVisual {
                 legendG.append("circle")
                     .attr("cx", 0)
                     .attr("cy", legY - 3)
-                    .attr("r", 5)
+                    .attr("r", Math.round(5 * widthScale))
                     .attr("fill", seg.color);
-                    
+
                 legendG.append("text")
-                    .attr("x", 12)
+                    .attr("x", Math.round(12 * widthScale))
                     .attr("y", legY)
-                    .attr("font-size", `${Math.max(10, fontSize - 2)}px`)
+                    .attr("font-size", `${Math.round(Math.max(10, fontSize - 2) * widthScale)}px`)
                     .attr("fill", fontColor)
                     .attr("font-weight", "500")
                     .text(labelStr);
-                    
-                legY += 16;
+
+                legY += Math.round(16 * widthScale);
             });
-            currentY = Math.max(currentY + barH + 35, currentY + 5 + legY);
+            currentY = Math.max(currentY + barOffsetY + barH + 35, currentY + 5 + legY);
         } else {
             currentY += barH + 35;
         }
@@ -352,10 +386,10 @@ export class Visual implements IVisual {
         targetWidth?: number,
         showTarget?: boolean
     ): void {
-        
+
         radius = 0; // Fixed radius = 0 according to requirements
         const clipId = "clip-" + (++Visual.clipIdCounter);
-            
+
         group.append("clipPath")
             .attr("id", clipId)
             .append("rect")
@@ -389,8 +423,8 @@ export class Visual implements IVisual {
                 .attr("y1", 0)
                 .attr("x2", scaleX(t))
                 .attr("y2", barH)
-                .attr("stroke", "none") 
-                .attr("stroke-width", 0); 
+                .attr("stroke", "none")
+                .attr("stroke-width", 0);
         });
 
         group.append("rect")
@@ -403,12 +437,12 @@ export class Visual implements IVisual {
             .attr("stroke-width", 0);
 
         const markerPos = scaleX(value);
-        
-        const ph = Math.max(12, markerWidth * 1.5); 
-        const pw = Math.max(8, ph * 0.4);           
-        const th = ph * 0.4;                        
-        
-        const points = `-${pw/2},-${ph} ${pw/2},-${ph} ${pw/2},-${th} 0,0 -${pw/2},-${th}`;
+
+        const ph = Math.max(12, markerWidth * 1.5);
+        const pw = Math.max(8, ph * 0.4);
+        const th = ph * 0.4;
+
+        const points = `-${pw / 2},-${ph} ${pw / 2},-${ph} ${pw / 2},-${th} 0,0 -${pw / 2},-${th}`;
 
         group.append("polygon")
             .attr("points", points)
@@ -435,7 +469,7 @@ export class Visual implements IVisual {
                 .attr("fill", fontColor)
                 .attr("text-anchor", "middle")
                 .text(`${value}${unit}`);
-            
+
             const textLen = (`${value}${unit}`.length * (fontSize - 2) * 0.6) + 4;
             group.insert("rect", "text:last-child")
                 .attr("x", markerPos - textLen / 2)
@@ -449,7 +483,7 @@ export class Visual implements IVisual {
         if (showTicks) {
             const ticksG = group.append("g")
                 .attr("transform", `translate(0, ${barH + 12})`);
-                
+
             validThresholds.forEach(t => {
                 ticksG.append("text")
                     .attr("x", scaleX(t))
@@ -459,7 +493,7 @@ export class Visual implements IVisual {
                     .attr("opacity", 0.55)
                     .attr("text-anchor", "middle")
                     .text(String(t));
-                    
+
                 ticksG.append("line")
                     .attr("x1", scaleX(t))
                     .attr("y1", -12)
