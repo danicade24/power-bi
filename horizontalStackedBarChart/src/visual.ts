@@ -240,7 +240,8 @@ export class Visual implements IVisual {
         const margin = { top: 10, right: 30, bottom: 20, left: 16 };
         if (showName) margin.top += fontSize + 10;
         
-        const drawWidth = Math.max(1, viewWidth - margin.left - margin.right);
+        const legendWidth = showLegend ? 110 : 0;
+        const drawWidth = Math.max(1, viewWidth - margin.left - margin.right - legendWidth);
         const scaleX = d3.scaleLinear().domain([minVal, maxVal]).range([0, drawWidth]).clamp(true);
 
         let currentY = margin.top;
@@ -286,35 +287,44 @@ export class Visual implements IVisual {
             markerColor, markerWidth, showLabel, showTicks, unit, fontSize, fontColor, minVal, maxVal,
             indicator.target, targetColor, targetWidth, showTarget);
 
-        currentY += barH + 35;
-
+        // Tachometer right legend
         if (showLegend) {
-            const legendG = mainG.append("g").attr("transform", `translate(0, ${currentY})`);
+            const legendG = mainG.append("g").attr("transform", `translate(${drawWidth + 20}, ${currentY + 5})`);
             
-            const legendSegments = this.buildSegments(minVal, maxVal, ascending, globalResolvedThresholds);
-            let lx = 0;
+            const numSegments = segments.length;
+            let legY = 0;
             
-            legendSegments.forEach((seg, i) => {
-                const label = `Leyenda ${i + 1}`;
-                legendG.append("rect")
-                    .attr("x", lx)
-                    .attr("y", 0)
-                    .attr("width", 12)
-                    .attr("height", 12)
-                    .attr("rx", 2)
+            segments.forEach((seg, i) => {
+                let labelStr = "";
+                if (numSegments === 1) {
+                    labelStr = `${seg.start}${unit} - ${seg.end}${unit}`;
+                } else if (i === 0) {
+                    labelStr = `≤ ${seg.end}${unit}`;
+                } else if (i === numSegments - 1) {
+                    labelStr = `≥ ${seg.start}${unit}`;
+                } else {
+                    labelStr = `${seg.start} - ${seg.end}${unit}`;
+                }
+
+                legendG.append("circle")
+                    .attr("cx", 0)
+                    .attr("cy", legY - 3)
+                    .attr("r", 5)
                     .attr("fill", seg.color);
                     
                 legendG.append("text")
-                    .attr("x", lx + 16)
-                    .attr("y", 10)
-                    .attr("font-size", `${fontSize - 1}px`)
+                    .attr("x", 12)
+                    .attr("y", legY)
+                    .attr("font-size", `${Math.max(10, fontSize - 2)}px`)
                     .attr("fill", fontColor)
-                    .attr("opacity", 0.7)
-                    .text(label);
+                    .attr("font-weight", "500")
+                    .text(labelStr);
                     
-                lx += 12 + 16 + (label.length * 7) + 15; 
+                legY += 16;
             });
-            currentY += 20;
+            currentY = Math.max(currentY + barH + 35, currentY + 5 + legY);
+        } else {
+            currentY += barH + 35;
         }
 
         this.container.style("height", `${Math.max(viewHeight, currentY + margin.bottom)}px`);

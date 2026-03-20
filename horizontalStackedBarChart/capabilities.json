@@ -6,11 +6,6 @@
       "kind": "Measure"
     },
     {
-      "displayName": "Target (Meta)",
-      "name": "target",
-      "kind": "Measure"
-    },
-    {
       "displayName": "Mínimo",
       "name": "min",
       "kind": "Measure"
@@ -18,6 +13,11 @@
     {
       "displayName": "Máximo",
       "name": "max",
+      "kind": "Measure"
+    },
+    {
+      "displayName": "Target (Meta)",
+      "name": "target",
       "kind": "Measure"
     },
     {
@@ -42,9 +42,9 @@
         "values": {
           "select": [
             { "bind": { "to": "measure" } },
-            { "bind": { "to": "target" } },
             { "bind": { "to": "min" } },
             { "bind": { "to": "max" } },
+            { "bind": { "to": "target" } },
             { "bind": { "to": "thresholds" } }
           ]
         }
