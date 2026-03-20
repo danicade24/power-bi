@@ -1,7 +1,7 @@
 "use strict";
 
 import powerbi from "powerbi-visuals-api";
-import { FormattingSettingsService } from "powerbi-visuals-utils-formattingmodel";
+import { FormattingSettingsService, formattingSettings } from "powerbi-visuals-utils-formattingmodel";
 import * as d3 from "d3";
 
 import { VisualSettings } from "./settings";
@@ -12,11 +12,12 @@ import IVisual                    = powerbi.extensibility.visual.IVisual;
 import IVisualHost                = powerbi.extensibility.visual.IVisualHost;
 import DataView                   = powerbi.DataView;
 
-interface IndicatorData {
-    name: string;
+interface SingleIndicatorData {
     value: number;
-    period?: string;
-    thresholdsData?: number[];
+    target?: number | null;
+    dataMin?: number | null;
+    dataMax?: number | null;
+    dataThresholds: number[];
 }
 
 interface Segment {
@@ -25,19 +26,12 @@ interface Segment {
     color: string;
 }
 
-interface RowGroup {
-    name: string;
-    entries: IndicatorData[];
-}
-
 export class Visual implements IVisual {
-
     private static clipIdCounter = 0;
     private host: IVisualHost;
     private container: d3.Selection<SVGSVGElement, unknown, null, undefined>;
     private settings: VisualSettings;
     private formattingSettingsService: FormattingSettingsService;
-    private numActiveThresholds: number = 0;
 
     constructor(options: VisualConstructorOptions) {
         this.host = options.host;
@@ -53,129 +47,114 @@ export class Visual implements IVisual {
     }
 
     public update(options: VisualUpdateOptions): void {
+        console.log('DATOS RECIBIDOS DE PBI:', options.dataViews);
+        this.container.selectAll("*").remove();
+
         this.settings = this.formattingSettingsService.populateFormattingSettingsModel(
             VisualSettings,
             options.dataViews?.[0]
         );
 
         const dataView: DataView = options.dataViews?.[0];
-        if (!dataView?.categorical?.categories?.length) {
-            this.renderEmpty("Arrastra un campo a «Indicador» y una medida a «Valor»", options);
+        if (!dataView?.categorical?.values?.length) {
+            this.renderEmpty("Faltan datos", options);
             return;
         }
 
-        const indicators = this.extractData(dataView);
-        if (!indicators.length) {
-            this.renderEmpty("Sin datos", options);
+        const indicator = this.extractData(dataView);
+        if (!indicator) {
+            this.renderEmpty("Faltan datos", options);
             return;
-        }
-
-        const firstEntryThresholds = indicators[0]?.thresholdsData;
-        if (firstEntryThresholds && firstEntryThresholds.length > 0) {
-            this.numActiveThresholds = firstEntryThresholds.length;
-        } else {
-            this.numActiveThresholds = this.settings.thresholdsConfig.getActiveThresholds().length;
         }
 
         const width = options.viewport.width;
         const height = options.viewport.height;
 
-        this.render(indicators, width, height, options);
+        this.render(indicator, width, height, options);
     }
 
-    private extractData(dataView: DataView): IndicatorData[] {
+    private extractData(dataView: DataView): SingleIndicatorData | null {
         const cat = dataView.categorical;
         
-        let nameRoles = -1;
-        let periodRoles = -1;
-        cat.categories?.forEach((category, index) => {
-            if (category.source.roles["category"]) nameRoles = index;
-            if (category.source.roles["period"]) periodRoles = index;
-        });
-
-        if (nameRoles === -1 && cat.categories?.length > 0) nameRoles = 0;
-
-        const names = nameRoles !== -1 ? cat.categories[nameRoles].values : [];
-        const periods = periodRoles !== -1 ? cat.categories[periodRoles].values : [];
-
-        let measureValues = [];
-        let thresholdsArrays: number[][] = [];
+        let measureCol: powerbi.DataViewValueColumn;
+        let targetCol: powerbi.DataViewValueColumn;
+        let minCol: powerbi.DataViewValueColumn;
+        let maxCol: powerbi.DataViewValueColumn;
+        let thresholdCols: powerbi.DataViewValueColumn[] = [];
 
         cat.values?.forEach(valueCol => {
-            if (valueCol.source.roles["measure"]) {
-                measureValues = valueCol.values as number[];
-            } else if (valueCol.source.roles["thresholds"]) {
-                if (!thresholdsArrays.length) thresholdsArrays = names.map(() => []);
-                valueCol.values.forEach((v: number, i: number) => {
-                    if (v != null) thresholdsArrays[i].push(v);
-                });
-            }
+            if (valueCol.source.roles["measure"]) measureCol = valueCol;
+            if (valueCol.source.roles["target"]) targetCol = valueCol;
+            if (valueCol.source.roles["min"]) minCol = valueCol;
+            if (valueCol.source.roles["max"]) maxCol = valueCol;
+            if (valueCol.source.roles["thresholds"]) thresholdCols.push(valueCol);
         });
 
-        if (!measureValues.length && cat.values?.length > 0) {
-            measureValues = cat.values[0].values as number[];
-        }
+        if (!measureCol) return null;
 
-        return names.map((name, i) => ({
-            name: String(name ?? ""),
-            value: Number(measureValues[i] ?? 0),
-            period: periods[i] != null ? String(periods[i]) : undefined,
-            thresholdsData: thresholdsArrays[i] || undefined
-        }));
+        const getVal = (col: powerbi.DataViewValueColumn | undefined) => {
+            const v = col?.values[0];
+            if (v == null || v === "") return null;
+            const num = Number(v);
+            return isNaN(num) ? null : num;
+        };
+
+        const dataThresholds = thresholdCols
+            .map(col => getVal(col))
+            .filter(v => v != null) as number[];
+
+        return {
+            value: getVal(measureCol) ?? 0,
+            target: getVal(targetCol),
+            dataMin: getVal(minCol),
+            dataMax: getVal(maxCol),
+            dataThresholds
+        };
     }
 
     private buildSegments(
-        dynamicThresholds: number[] | undefined,
         minVal: number,
         maxVal: number,
-        ascending: boolean
+        ascending: boolean,
+        tValues: number[]
     ): Segment[] {
-        
-        let tValues: number[] = [];
-        if (dynamicThresholds && dynamicThresholds.length > 0) {
-            tValues = [...dynamicThresholds];
-        } else {
-            tValues = this.settings.thresholdsConfig.getActiveThresholds();
+        let rootColors = ['#00A651', '#84C225', '#FFFF00', '#FFA500', '#FF5500', '#FF0000'];
+        if (!ascending) {
+            rootColors = rootColors.slice().reverse();
         }
 
-        let colors = this.settings.segmentColors.getActiveColors();
-        
-        if (!ascending) {
-            const numSegments = Math.min(tValues.length + 1, colors.length);
-            const activeColors = colors.slice(0, numSegments).reverse();
-            colors = [ ...activeColors, ...colors.slice(numSegments) ];
-        }
+        const colorScale = d3.interpolateRgbBasis(rootColors);
 
         const validThresholds = tValues
             .filter(v => v > minVal && v < maxVal)
             .sort((a, b) => a - b);
         
         const marks = [minVal, ...validThresholds, maxVal];
-        
+        const numSegments = marks.length - 1;
+
+        const manualColors = this.settings.segmentColors.getActiveColors();
         const segs: Segment[] = [];
-        for (let i = 0; i < marks.length - 1; i++) {
+
+        for (let i = 0; i < numSegments; i++) {
+            const relativeMid = numSegments > 1 ? i / (numSegments - 1) : 1;
+            const validRelativeMid = Math.max(0, Math.min(1, relativeMid));
+            
+            let color = manualColors[i];
+            if (!color || color.trim() === "") {
+                color = colorScale(validRelativeMid);
+            }
+
             segs.push({
                 start: marks[i],
                 end: marks[i + 1],
-                color: colors[i] || "#cccccc" 
+                color: color
             });
         }
         
         return segs;
     }
 
-    private groupByName(indicators: IndicatorData[]): RowGroup[] {
-        const map = new Map<string, IndicatorData[]>();
-        for (const ind of indicators) {
-            const key = ind.name;
-            if (!map.has(key)) map.set(key, []);
-            map.get(key)!.push(ind);
-        }
-        return Array.from(map.entries()).map(([name, entries]) => ({ name, entries }));
-    }
-
     private renderEmpty(msg: string, options: VisualUpdateOptions): void {
-        this.container.selectAll("*").remove();
         const w = options.viewport.width;
         const h = options.viewport.height;
         this.container.append("text")
@@ -188,7 +167,7 @@ export class Visual implements IVisual {
     }
 
     private render(
-        indicators: IndicatorData[],
+        indicator: SingleIndicatorData,
         viewWidth: number,
         viewHeight: number,
         options: VisualUpdateOptions
@@ -201,157 +180,118 @@ export class Visual implements IVisual {
         const markerColor = (s.marker.color.value as any)?.value ?? "#1a1a1a";
         const markerWidth = (s.marker.width.value as number) ?? 16;
         const showLabel = s.marker.showLabel.value as boolean;
+        const targetColor = (s.target.color.value as any)?.value ?? "#ffffff";
+        const targetWidth = (s.target.width.value as number) ?? 2;
+        const showTarget = s.target.show.value as boolean;
         const showName = s.labels.showIndicatorName.value as boolean;
         const showTicks = s.bar.showThresholdTicks.value as boolean;
         const showLegend = s.bar.showLegend.value as boolean;
         const unit = (s.scale.unit.value as string) ?? "";
         
-        let dynamicMin = Infinity;
-        let dynamicMax = -Infinity;
+        let dynamicMin = indicator.value;
+        let dynamicMax = indicator.value;
         
-        indicators.forEach(ind => {
-            if (ind.value > dynamicMax) dynamicMax = ind.value;
-            if (ind.value < dynamicMin) dynamicMin = ind.value;
-            if (ind.thresholdsData) {
-                ind.thresholdsData.forEach(t => {
-                    if (t > dynamicMax) dynamicMax = t;
-                    if (t < dynamicMin) dynamicMin = t;
-                });
+        const rawManualThresholds = this.settings.thresholdsConfig.getActiveThresholdsOrNulls();
+        const manualThresholds = rawManualThresholds.filter((t): t is number => t != null);
+
+        if (indicator.target != null && !isNaN(indicator.target)) {
+            if (indicator.target > dynamicMax) dynamicMax = indicator.target;
+            if (indicator.target < dynamicMin) dynamicMin = indicator.target;
+        }
+        if (indicator.dataMax != null && !isNaN(indicator.dataMax) && indicator.dataMax > dynamicMax) dynamicMax = indicator.dataMax;
+        if (indicator.dataMin != null && !isNaN(indicator.dataMin) && indicator.dataMin < dynamicMin) dynamicMin = indicator.dataMin;
+        
+        indicator.dataThresholds.forEach(t => {
+            if (!isNaN(t)) {
+                if (t > dynamicMax) dynamicMax = t;
+                if (t < dynamicMin) dynamicMin = t;
             }
         });
 
-        if (dynamicMax === -Infinity) dynamicMax = 100;
-        if (dynamicMin === Infinity) dynamicMin = 0;
+        manualThresholds.forEach(t => {
+            if (!isNaN(t)) {
+                if (t > dynamicMax) dynamicMax = t;
+                if (t < dynamicMin) dynamicMin = t;
+            }
+        });
+
+        if (dynamicMax === dynamicMin) {
+            dynamicMax = dynamicMin + 1;
+        }
 
         let minVal = (s.scale.minValue.value != null && s.scale.minValue.value !== ("" as any)) 
-            ? s.scale.minValue.value as number 
-            : Math.min(0, dynamicMin);
+            ? Number(s.scale.minValue.value)
+            : (indicator.dataMin != null && !isNaN(indicator.dataMin) ? indicator.dataMin : dynamicMin);
             
         let maxVal = (s.scale.maxValue.value != null && s.scale.maxValue.value !== ("" as any)) 
-            ? s.scale.maxValue.value as number 
-            : Math.max(minVal + 10, dynamicMax);
+            ? Number(s.scale.maxValue.value)
+            : (indicator.dataMax != null && !isNaN(indicator.dataMax) ? indicator.dataMax : dynamicMax);
 
-        if (minVal >= maxVal) maxVal = minVal + 100;
+        if (minVal >= maxVal) maxVal = minVal + 1;
         const range = maxVal - minVal;
-        const ascending = s.order.ascending.value as boolean;
-        const overrideValue = s.marker.overrideValue.value as number;
 
-        this.container.selectAll("*").remove();
+        const dataThresholds = indicator.dataThresholds.filter(t => !isNaN(t));
+        const globalSet = new Set<number>();
+        dataThresholds.forEach(t => globalSet.add(t));
+        manualThresholds.forEach(t => globalSet.add(t));
+        
+        const globalResolvedThresholds = Array.from(globalSet).sort((a, b) => a - b);
 
         const margin = { top: 10, right: 30, bottom: 20, left: 16 };
         if (showName) margin.top += fontSize + 10;
         
         const drawWidth = Math.max(1, viewWidth - margin.left - margin.right);
-        
-        const scaleX = d3.scaleLinear().domain([minVal, maxVal]).range([0, drawWidth]);
+        const scaleX = d3.scaleLinear().domain([minVal, maxVal]).range([0, drawWidth]).clamp(true);
 
-        const grouped = this.groupByName(indicators);
         let currentY = margin.top;
-        const rowSpacing = 35;
 
         const mainG = this.container.append("g")
             .attr("transform", `translate(${margin.left}, 0)`);
 
-        grouped.forEach(({ name, entries }) => {
-            const entryG = mainG.append("g")
-                .attr("transform", `translate(0, ${currentY})`);
+        const entryG = mainG.append("g")
+            .attr("transform", `translate(0, ${currentY})`);
 
-            const lastEntry = entries[entries.length - 1];
-            const finalValue = overrideValue != null ? overrideValue : lastEntry.value;
+        const overrideValue = s.marker.overrideValue.value;
+        const finalValue = (overrideValue != null && overrideValue !== ("" as any)) ? overrideValue as number : indicator.value;
 
-            if (showName) {
+        if (showName) {
+            const dataView = options.dataViews?.[0];
+            const measureCol = dataView?.categorical?.values?.find(v => v.source.roles["measure"]);
+            const indicatorName = measureCol ? measureCol.source.displayName : "Indicador";
+
+            entryG.append("text")
+                .attr("x", 0)
+                .attr("y", -8)
+                .attr("font-size", `${fontSize}px`)
+                .attr("font-weight", "500")
+                .attr("fill", fontColor)
+                .text(indicatorName);
+
+            if (showLabel) {
                 entryG.append("text")
-                    .attr("x", 0)
+                    .attr("x", drawWidth)
                     .attr("y", -8)
-                    .attr("font-size", `${fontSize}px`)
-                    .attr("font-weight", "500")
+                    .attr("font-size", `${fontSize - 1}px`)
                     .attr("fill", fontColor)
-                    .text(name);
-
-                if (showLabel) {
-                    entryG.append("text")
-                        .attr("x", drawWidth)
-                        .attr("y", -8)
-                        .attr("font-size", `${fontSize - 1}px`)
-                        .attr("fill", fontColor)
-                        .attr("opacity", 0.7)
-                        .attr("text-anchor", "end")
-                        .text(`${finalValue}${unit}`);
-                }
+                    .attr("opacity", 0.7)
+                    .attr("text-anchor", "end")
+                    .text(`${finalValue}${unit}`);
             }
+        }
 
-            const segments = this.buildSegments(lastEntry.thresholdsData, minVal, maxVal, ascending);
+        const ascending = s.order.ascending.value as boolean;
+        const segments = this.buildSegments(minVal, maxVal, ascending, globalResolvedThresholds);
 
-            let tValues = lastEntry.thresholdsData && lastEntry.thresholdsData.length > 0
-                ? lastEntry.thresholdsData
-                : this.settings.thresholdsConfig.getActiveThresholds();
+        this.drawVectorBar(entryG, finalValue, segments, globalResolvedThresholds, scaleX, barH, radius,
+            markerColor, markerWidth, showLabel, showTicks, unit, fontSize, fontColor, minVal, maxVal,
+            indicator.target, targetColor, targetWidth, showTarget);
 
-            this.drawVectorBar(entryG, finalValue, segments, tValues, scaleX, barH, radius,
-                markerColor, markerWidth, showLabel, showTicks, unit, fontSize, fontColor, minVal, maxVal);
-
-            currentY += barH + rowSpacing;
-
-            if (entries.length > 1) {
-                const histG = mainG.append("g")
-                    .attr("transform", `translate(0, ${currentY})`);
-                    
-                histG.append("text")
-                    .attr("x", 0)
-                    .attr("y", -4)
-                    .attr("font-size", `${fontSize - 2}px`)
-                    .attr("fill", fontColor)
-                    .attr("opacity", 0.5)
-                    .text("Historial");
-                
-                currentY += 10;
-
-                entries.forEach((entry) => {
-                    const rowG = mainG.append("g")
-                        .attr("transform", `translate(0, ${currentY})`);
-                    
-                    const labelW = 45;
-                    rowG.append("text")
-                        .attr("x", 0)
-                        .attr("y", barH * 0.6)
-                        .attr("font-size", `${fontSize - 2}px`)
-                        .attr("fill", fontColor)
-                        .attr("opacity", 0.6)
-                        .text(entry.period ?? "");
-                    
-                    const miniBarX = labelW + 10;
-                    const miniDrawWidth = drawWidth - miniBarX - 45; 
-                    const miniScaleX = d3.scaleLinear().domain([minVal, maxVal]).range([0, miniDrawWidth]);
-                    const miniBarG = rowG.append("g").attr("transform", `translate(${miniBarX}, 0)`);
-                    
-                    const miniSegments = this.buildSegments(entry.thresholdsData, minVal, maxVal, ascending);
-                    const finalMiniValue = overrideValue != null ? overrideValue : entry.value;
-
-                    let miniTValues = entry.thresholdsData && entry.thresholdsData.length > 0
-                        ? entry.thresholdsData
-                        : this.settings.thresholdsConfig.getActiveThresholds();
-
-                    this.drawVectorBar(miniBarG, finalMiniValue, miniSegments, miniTValues, miniScaleX, Math.round(barH * 0.6), Math.round(radius * 0.6),
-                        markerColor, Math.max(1, markerWidth - 1), false, false, unit, fontSize - 2, fontColor, minVal, maxVal);
-
-                    rowG.append("text")
-                        .attr("x", miniBarX + miniDrawWidth + 5)
-                        .attr("y", barH * 0.6)
-                        .attr("font-size", `${fontSize - 2}px`)
-                        .attr("fill", fontColor)
-                        .attr("opacity", 0.6)
-                        .text(`${finalMiniValue}${unit}`);
-
-                    currentY += (barH * 0.6) + 12;
-                });
-                currentY += 15;
-            }
-        });
+        currentY += barH + 35;
 
         if (showLegend) {
-            currentY += 10;
             const legendG = mainG.append("g").attr("transform", `translate(0, ${currentY})`);
             
-            const legendSegments = this.buildSegments(undefined, minVal, maxVal, ascending);
+            const legendSegments = this.buildSegments(minVal, maxVal, ascending, globalResolvedThresholds);
             let lx = 0;
             
             legendSegments.forEach((seg, i) => {
@@ -376,7 +316,7 @@ export class Visual implements IVisual {
             });
             currentY += 20;
         }
-        
+
         this.container.style("height", `${Math.max(viewHeight, currentY + margin.bottom)}px`);
     }
 
@@ -396,10 +336,16 @@ export class Visual implements IVisual {
         fontSize: number,
         fontColor: string,
         minVal: number,
-        maxVal: number
+        maxVal: number,
+        targetValue?: number | null,
+        targetColor?: string,
+        targetWidth?: number,
+        showTarget?: boolean
     ): void {
         
+        radius = 0; // Fixed radius = 0 according to requirements
         const clipId = "clip-" + (++Visual.clipIdCounter);
+            
         group.append("clipPath")
             .attr("id", clipId)
             .append("rect")
@@ -420,7 +366,9 @@ export class Visual implements IVisual {
                     .attr("width", w)
                     .attr("height", barH)
                     .attr("fill", seg.color)
-                    .attr("opacity", 0.88);
+                    .attr("stroke", "none")
+                    .attr("stroke-width", 0)
+                    .attr("opacity", 1);
             }
         });
 
@@ -431,12 +379,20 @@ export class Visual implements IVisual {
                 .attr("y1", 0)
                 .attr("x2", scaleX(t))
                 .attr("y2", barH)
-                .attr("stroke", "rgba(0,0,0,0.5)") 
-                .attr("stroke-width", 1.5)
-                .attr("stroke-dasharray", "2,2"); 
+                .attr("stroke", "none") 
+                .attr("stroke-width", 0); 
         });
 
-        const markerPos = scaleX(Math.max(minVal, Math.min(value, maxVal))); 
+        group.append("rect")
+            .attr("width", scaleX(maxVal))
+            .attr("height", barH)
+            .attr("rx", radius)
+            .attr("ry", radius)
+            .attr("fill", "transparent")
+            .attr("stroke", "none")
+            .attr("stroke-width", 0);
+
+        const markerPos = scaleX(value);
         
         const ph = Math.max(12, markerWidth * 1.5); 
         const pw = Math.max(8, ph * 0.4);           
@@ -448,6 +404,18 @@ export class Visual implements IVisual {
             .attr("points", points)
             .attr("fill", markerColor)
             .attr("transform", `translate(${markerPos}, ${-1})`);
+
+        if (showTarget && targetValue != null && targetValue >= minVal && targetValue <= maxVal) {
+            const tx = scaleX(targetValue);
+            group.append("line")
+                .attr("x1", tx)
+                .attr("y1", -(targetWidth || 2))
+                .attr("x2", tx)
+                .attr("y2", barH + (targetWidth || 2))
+                .attr("stroke", targetColor || "#ffffff")
+                .attr("stroke-width", targetWidth || 2)
+                .attr("z-index", 10);
+        }
 
         if (showLabel) {
             const lbl = group.append("text")
@@ -495,7 +463,20 @@ export class Visual implements IVisual {
     }
 
     public getFormattingModel(): powerbi.visuals.FormattingModel {
-        this.settings.segmentColors.updateVisibleSlices(this.numActiveThresholds);
+        this.settings.thresholdsConfig.updateVisibleSlices(false);
+        this.settings.segmentColors.updateVisibleSlices();
+
+        this.settings.order.slices = [
+            this.settings.order.ascending
+        ];
+
+        this.settings.marker.slices = [
+            this.settings.marker.color,
+            this.settings.marker.width,
+            this.settings.marker.overrideValue,
+            this.settings.marker.showLabel
+        ];
+
         return this.formattingSettingsService.buildFormattingModel(this.settings);
     }
 }

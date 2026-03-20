@@ -8,12 +8,10 @@ export declare class Visual implements IVisual {
     private container;
     private settings;
     private formattingSettingsService;
-    private numActiveThresholds;
     constructor(options: VisualConstructorOptions);
     update(options: VisualUpdateOptions): void;
     private extractData;
     private buildSegments;
-    private groupByName;
     private renderEmpty;
     private render;
     private drawVectorBar;

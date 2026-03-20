@@ -1,28 +1,29 @@
 {
   "dataRoles": [
     {
-      "name": "category",
-      "kind": "Grouping",
-      "displayName": "Indicador (nombre)",
-      "description": "Nombre del KPI o indicador a mostrar en la barra"
-    },
-    {
+      "displayName": "Valor Actual",
       "name": "measure",
-      "kind": "Measure",
-      "displayName": "Valor actual",
-      "description": "Valor numérico actual del indicador (posición del marcador)"
+      "kind": "Measure"
     },
     {
-      "name": "period",
-      "kind": "Grouping",
-      "displayName": "Período (mes/año)",
-      "description": "Opcional: columna de fecha o período para mostrar historial"
+      "displayName": "Target (Meta)",
+      "name": "target",
+      "kind": "Measure"
     },
     {
-      "name": "thresholds",
-      "kind": "Measure",
+      "displayName": "Mínimo",
+      "name": "min",
+      "kind": "Measure"
+    },
+    {
+      "displayName": "Máximo",
+      "name": "max",
+      "kind": "Measure"
+    },
+    {
       "displayName": "Umbrales",
-      "description": "Valores para definir los límites de los umbrales dinámicamente desde los datos"
+      "name": "thresholds",
+      "kind": "Measure"
     }
   ],
 
@@ -30,20 +31,20 @@
     {
       "conditions": [
         {
-          "category": { "max": 1 },
-          "measure": { "max": 1 },
-          "period": { "max": 1 },
-          "thresholds": {}
+          "measure": { "min": 1, "max": 1 },
+          "target": { "min": 0, "max": 1 },
+          "min": { "min": 0, "max": 1 },
+          "max": { "min": 0, "max": 1 },
+          "thresholds": { "min": 0 }
         }
       ],
       "categorical": {
-        "categories": {
-          "for": { "in": "category" },
-          "dataReductionAlgorithm": { "top": { "count": 50 } }
-        },
         "values": {
           "select": [
             { "bind": { "to": "measure" } },
+            { "bind": { "to": "target" } },
+            { "bind": { "to": "min" } },
+            { "bind": { "to": "max" } },
             { "bind": { "to": "thresholds" } }
           ]
         }
@@ -81,26 +82,48 @@
       }
     },
 
+    "targetSettings": {
+      "displayName": "Marcador de Meta (Target)",
+      "properties": {
+        "show": {
+          "displayName": "Mostrar",
+          "type": { "bool": true }
+        },
+        "color": {
+          "displayName": "Color de línea",
+          "type": { "fill": { "solid": { "color": true } } }
+        },
+        "width": {
+          "displayName": "Grosor (px)",
+          "type": { "numeric": true }
+        }
+      }
+    },
+
     "thresholdsSettings": {
       "displayName": "Líneas de Umbral",
       "properties": {
+        "numThresholds": { "displayName": "Número de umbrales manuales", "type": { "numeric": true } },
         "t1": { "displayName": "Umbral 1", "type": { "numeric": true } },
         "t2": { "displayName": "Umbral 2", "type": { "numeric": true } },
         "t3": { "displayName": "Umbral 3", "type": { "numeric": true } },
         "t4": { "displayName": "Umbral 4", "type": { "numeric": true } },
-        "t5": { "displayName": "Umbral 5", "type": { "numeric": true } }
-      }
-    },
-
-    "segmentColors": {
-      "displayName": "Colores de Segmentos",
-      "properties": {
-        "c1": { "displayName": "Color Segmento 1", "type": { "fill": { "solid": { "color": true } } } },
-        "c2": { "displayName": "Color Segmento 2", "type": { "fill": { "solid": { "color": true } } } },
-        "c3": { "displayName": "Color Segmento 3", "type": { "fill": { "solid": { "color": true } } } },
-        "c4": { "displayName": "Color Segmento 4", "type": { "fill": { "solid": { "color": true } } } },
-        "c5": { "displayName": "Color Segmento 5", "type": { "fill": { "solid": { "color": true } } } },
-        "c6": { "displayName": "Color Segmento 6", "type": { "fill": { "solid": { "color": true } } } }
+        "t5": { "displayName": "Umbral 5", "type": { "numeric": true } },
+        "t6": { "displayName": "Umbral 6", "type": { "numeric": true } },
+        "t7": { "displayName": "Umbral 7", "type": { "numeric": true } },
+        "t8": { "displayName": "Umbral 8", "type": { "numeric": true } },
+        "t9": { "displayName": "Umbral 9", "type": { "numeric": true } },
+        "t10": { "displayName": "Umbral 10", "type": { "numeric": true } },
+        "t11": { "displayName": "Umbral 11", "type": { "numeric": true } },
+        "t12": { "displayName": "Umbral 12", "type": { "numeric": true } },
+        "t13": { "displayName": "Umbral 13", "type": { "numeric": true } },
+        "t14": { "displayName": "Umbral 14", "type": { "numeric": true } },
+        "t15": { "displayName": "Umbral 15", "type": { "numeric": true } },
+        "t16": { "displayName": "Umbral 16", "type": { "numeric": true } },
+        "t17": { "displayName": "Umbral 17", "type": { "numeric": true } },
+        "t18": { "displayName": "Umbral 18", "type": { "numeric": true } },
+        "t19": { "displayName": "Umbral 19", "type": { "numeric": true } },
+        "t20": { "displayName": "Umbral 20", "type": { "numeric": true } }
       }
     },
 
