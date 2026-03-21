@@ -23,12 +23,26 @@
     {
       "displayName": "Umbrales",
       "name": "thresholds",
-      "kind": "Measure"
+      "kind": "Measure",
+      "description": "Arrastra una medida por umbral en el mismo orden que los segmentos"
     },
     {
       "displayName": "Texto Formateado",
       "name": "formatText",
-      "kind": "Measure"
+      "kind": "Measure",
+      "description": "Valor formateado que aparece grande en el panel izquierdo (ej: FORMAT([valor],\"0.0%\"))"
+    },
+    {
+      "displayName": "Zona Actual",
+      "name": "zoneLabel",
+      "kind": "Measure",
+      "description": "Campo DAX que devuelve el nombre de la zona donde cae el valor (ej: 'Objetivo', 'Apetito'...). Reemplaza el texto fijo debajo del valor formateado."
+    },
+    {
+      "displayName": "Etiquetas de Segmentos",
+      "name": "segmentLabels",
+      "kind": "Measure",
+      "description": "Arrastra una medida por segmento con el texto de la leyenda (ej: '35%', '33%'...). El visual agrega ≥ o < automáticamente."
     }
   ],
 
@@ -36,23 +50,27 @@
     {
       "conditions": [
         {
-          "measure": { "min": 1, "max": 1 },
-          "target": { "min": 0, "max": 1 },
-          "min": { "min": 0, "max": 1 },
-          "max": { "min": 0, "max": 1 },
-          "thresholds": { "min": 0 },
-          "formatText": { "min": 0, "max": 1 }
+          "measure":       { "min": 1, "max": 1 },
+          "target":        { "min": 0, "max": 1 },
+          "min":           { "min": 0, "max": 1 },
+          "max":           { "min": 0, "max": 1 },
+          "thresholds":    { "min": 0 },
+          "formatText":    { "min": 0, "max": 1 },
+          "zoneLabel":     { "min": 0, "max": 1 },
+          "segmentLabels": { "min": 0 }
         }
       ],
       "categorical": {
         "values": {
           "select": [
-            { "bind": { "to": "measure" } },
-            { "bind": { "to": "min" } },
-            { "bind": { "to": "max" } },
-            { "bind": { "to": "target" } },
-            { "bind": { "to": "thresholds" } },
-            { "bind": { "to": "formatText" } }
+            { "bind": { "to": "measure"       } },
+            { "bind": { "to": "min"           } },
+            { "bind": { "to": "max"           } },
+            { "bind": { "to": "target"        } },
+            { "bind": { "to": "thresholds"    } },
+            { "bind": { "to": "formatText"    } },
+            { "bind": { "to": "zoneLabel"     } },
+            { "bind": { "to": "segmentLabels" } }
           ]
         }
       }
@@ -64,46 +82,25 @@
     "scaleSettings": {
       "displayName": "Límites y Escala",
       "properties": {
-        "minValue": {
-          "displayName": "Valor Mínimo (Inicio)",
-          "type": { "numeric": true }
-        },
-        "maxValue": {
-          "displayName": "Valor Máximo (Fin)",
-          "type": { "numeric": true }
-        },
-        "unit": {
-          "displayName": "Unidad",
-          "type": { "text": true }
-        }
+        "minValue": { "displayName": "Valor Mínimo (Inicio)", "type": { "numeric": true } },
+        "maxValue": { "displayName": "Valor Máximo (Fin)",   "type": { "numeric": true } },
+        "unit":     { "displayName": "Unidad",               "type": { "text":    true } }
       }
     },
 
     "orderSettings": {
       "displayName": "Orden de Segmentos",
       "properties": {
-        "ascending": {
-          "displayName": "Colores Ascendentes",
-          "type": { "bool": true }
-        }
+        "ascending": { "displayName": "Colores Ascendentes", "type": { "bool": true } }
       }
     },
 
     "targetSettings": {
       "displayName": "Marcador de Meta (Target)",
       "properties": {
-        "show": {
-          "displayName": "Mostrar",
-          "type": { "bool": true }
-        },
-        "color": {
-          "displayName": "Color de línea",
-          "type": { "fill": { "solid": { "color": true } } }
-        },
-        "width": {
-          "displayName": "Grosor (px)",
-          "type": { "numeric": true }
-        }
+        "show":  { "displayName": "Mostrar",        "type": { "bool": true } },
+        "color": { "displayName": "Color de línea", "type": { "fill": { "solid": { "color": true } } } },
+        "width": { "displayName": "Grosor (px)",    "type": { "numeric": true } }
       }
     },
 
@@ -111,15 +108,15 @@
       "displayName": "Líneas de Umbral",
       "properties": {
         "numThresholds": { "displayName": "Número de umbrales manuales", "type": { "numeric": true } },
-        "t1": { "displayName": "Umbral 1", "type": { "numeric": true } },
-        "t2": { "displayName": "Umbral 2", "type": { "numeric": true } },
-        "t3": { "displayName": "Umbral 3", "type": { "numeric": true } },
-        "t4": { "displayName": "Umbral 4", "type": { "numeric": true } },
-        "t5": { "displayName": "Umbral 5", "type": { "numeric": true } },
-        "t6": { "displayName": "Umbral 6", "type": { "numeric": true } },
-        "t7": { "displayName": "Umbral 7", "type": { "numeric": true } },
-        "t8": { "displayName": "Umbral 8", "type": { "numeric": true } },
-        "t9": { "displayName": "Umbral 9", "type": { "numeric": true } },
+        "t1":  { "displayName": "Umbral 1",  "type": { "numeric": true } },
+        "t2":  { "displayName": "Umbral 2",  "type": { "numeric": true } },
+        "t3":  { "displayName": "Umbral 3",  "type": { "numeric": true } },
+        "t4":  { "displayName": "Umbral 4",  "type": { "numeric": true } },
+        "t5":  { "displayName": "Umbral 5",  "type": { "numeric": true } },
+        "t6":  { "displayName": "Umbral 6",  "type": { "numeric": true } },
+        "t7":  { "displayName": "Umbral 7",  "type": { "numeric": true } },
+        "t8":  { "displayName": "Umbral 8",  "type": { "numeric": true } },
+        "t9":  { "displayName": "Umbral 9",  "type": { "numeric": true } },
         "t10": { "displayName": "Umbral 10", "type": { "numeric": true } },
         "t11": { "displayName": "Umbral 11", "type": { "numeric": true } },
         "t12": { "displayName": "Umbral 12", "type": { "numeric": true } },
@@ -137,74 +134,57 @@
     "markerSettings": {
       "displayName": "Marcador",
       "properties": {
-        "color": {
-          "displayName": "Color",
-          "type": { "fill": { "solid": { "color": true } } }
-        },
-        "width": {
-          "displayName": "Alto del marcador (px)",
-          "type": { "numeric": true }
-        },
-        "overrideValue": {
-          "displayName": "Valor en eje X (Manual)",
-          "type": { "numeric": true }
-        },
-        "showLabel": {
-          "displayName": "Mostrar etiqueta del valor",
-          "type": { "bool": true }
-        }
+        "color":         { "displayName": "Color",                     "type": { "fill": { "solid": { "color": true } } } },
+        "width":         { "displayName": "Alto del marcador (px)",    "type": { "numeric": true } },
+        "overrideValue": { "displayName": "Valor en eje X (Manual)",   "type": { "numeric": true } },
+        "showLabel":     { "displayName": "Mostrar etiqueta del valor", "type": { "bool":    true } }
       }
     },
 
     "barSettings": {
       "displayName": "Configuración de Barra",
       "properties": {
-        "height": {
-          "displayName": "Alto de la barra (px)",
-          "type": { "numeric": true }
-        },
-        "borderRadius": {
-          "displayName": "Esquinas redondeadas (px)",
-          "type": { "numeric": true }
-        },
-        "showThresholdTicks": {
-          "displayName": "Mostrar marcas de los umbrales",
-          "type": { "bool": true }
-        },
-        "showLegend": {
-          "displayName": "Mostrar leyenda",
-          "type": { "bool": true }
-        }
+        "height":             { "displayName": "Grosor del arco (px)",          "type": { "numeric": true } },
+        "borderRadius":       { "displayName": "Esquinas redondeadas (px)",     "type": { "numeric": true } },
+        "showThresholdTicks": { "displayName": "Mostrar marcas de los umbrales","type": { "bool":    true } },
+        "showLegend":         { "displayName": "Mostrar leyenda",               "type": { "bool":    true } }
       }
     },
 
     "labelSettings": {
       "displayName": "Etiquetas Generales",
       "properties": {
-        "fontSize": {
-          "displayName": "Tamaño de fuente",
-          "type": { "numeric": true }
-        },
-        "fontColor": {
-          "displayName": "Color de fuente",
-          "type": { "fill": { "solid": { "color": true } } }
-        },
-        "showIndicatorName": {
-          "displayName": "Mostrar nombre del indicador",
-          "type": { "bool": true }
-        },
-        "kpiValueFontSize": {
-          "displayName": "Tamaño valor formateado (px)",
-          "type": {
-            "numeric": true
-          }
-        },
-        "kpiLabelFontSize": {
-          "displayName": "Tamaño etiqueta 'Objetivo' (px)",
-          "type": {
-            "numeric": true
-          }
-        }
+        "fontSize":          { "displayName": "Tamaño de fuente",             "type": { "numeric": true } },
+        "fontColor":         { "displayName": "Color de fuente",              "type": { "fill": { "solid": { "color": true } } } },
+        "showIndicatorName": { "displayName": "Mostrar nombre del indicador", "type": { "bool":    true } },
+        "kpiValueFontSize":  { "displayName": "Tamaño valor formateado (px)", "type": { "numeric": true } },
+        "kpiLabelFontSize":  { "displayName": "Tamaño etiqueta zona (px)",    "type": { "numeric": true } }
+      }
+    },
+
+    "segmentColorsSettings": {
+      "displayName": "Colores de Segmentos",
+      "properties": {
+        "c1":  { "displayName": "Color Segmento 1",  "type": { "fill": { "solid": { "color": true } } } },
+        "c2":  { "displayName": "Color Segmento 2",  "type": { "fill": { "solid": { "color": true } } } },
+        "c3":  { "displayName": "Color Segmento 3",  "type": { "fill": { "solid": { "color": true } } } },
+        "c4":  { "displayName": "Color Segmento 4",  "type": { "fill": { "solid": { "color": true } } } },
+        "c5":  { "displayName": "Color Segmento 5",  "type": { "fill": { "solid": { "color": true } } } },
+        "c6":  { "displayName": "Color Segmento 6",  "type": { "fill": { "solid": { "color": true } } } },
+        "c7":  { "displayName": "Color Segmento 7",  "type": { "fill": { "solid": { "color": true } } } },
+        "c8":  { "displayName": "Color Segmento 8",  "type": { "fill": { "solid": { "color": true } } } },
+        "c9":  { "displayName": "Color Segmento 9",  "type": { "fill": { "solid": { "color": true } } } },
+        "c10": { "displayName": "Color Segmento 10", "type": { "fill": { "solid": { "color": true } } } },
+        "c11": { "displayName": "Color Segmento 11", "type": { "fill": { "solid": { "color": true } } } },
+        "c12": { "displayName": "Color Segmento 12", "type": { "fill": { "solid": { "color": true } } } },
+        "c13": { "displayName": "Color Segmento 13", "type": { "fill": { "solid": { "color": true } } } },
+        "c14": { "displayName": "Color Segmento 14", "type": { "fill": { "solid": { "color": true } } } },
+        "c15": { "displayName": "Color Segmento 15", "type": { "fill": { "solid": { "color": true } } } },
+        "c16": { "displayName": "Color Segmento 16", "type": { "fill": { "solid": { "color": true } } } },
+        "c17": { "displayName": "Color Segmento 17", "type": { "fill": { "solid": { "color": true } } } },
+        "c18": { "displayName": "Color Segmento 18", "type": { "fill": { "solid": { "color": true } } } },
+        "c19": { "displayName": "Color Segmento 19", "type": { "fill": { "solid": { "color": true } } } },
+        "c20": { "displayName": "Color Segmento 20", "type": { "fill": { "solid": { "color": true } } } }
       }
     }
 
@@ -212,8 +192,6 @@
 
   "supportsHighlight": false,
   "supportsKeyboardFocus": false,
-  "sorting": {
-    "default": {}
-  },
+  "sorting": { "default": {} },
   "privileges": []
 }

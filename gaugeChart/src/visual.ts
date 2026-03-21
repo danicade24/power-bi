@@ -100,7 +100,7 @@ export class Visual implements IVisual {
             }
             if (valueCol.source.roles["zoneLabel"]) {
                 const tv = valueCol.values[0];
-                zoneLabelStr = tv != null && String(tv).trim() !== "" ? String(tv) : null;
+                zoneLabelStr = (tv != null && String(tv).trim() !== "") ? String(tv) : null;
             }
         });
 
@@ -113,8 +113,8 @@ export class Visual implements IVisual {
             return isNaN(num) ? null : num;
         };
 
-        const dataThresholds  = thresholdCols.map(col => getVal(col)).filter(v => v != null) as number[];
-        const segmentLabels   = segmentLabelCols.map(col => {
+        const dataThresholds = thresholdCols.map(col => getVal(col)).filter(v => v != null) as number[];
+        const segmentLabels  = segmentLabelCols.map(col => {
             const v = col.values[0];
             return (v == null || v === "") ? "" : String(v).trim();
         });
@@ -275,8 +275,11 @@ export class Visual implements IVisual {
             && String(rawFormatText).trim() !== ""
             && String(rawFormatText).trim() !== "null";
         const formatTextDisplay = hasFormatText ? String(rawFormatText) : "";
-        const zoneLabelDisplay  = (indicator.zoneLabel && indicator.zoneLabel.trim() !== "")
-            ? indicator.zoneLabel : "Objetivo";
+
+        // FIX: zona dinámica del dataset — si no hay campo conectado muestra "Objetivo"
+        const zoneLabelDisplay = (indicator.zoneLabel && indicator.zoneLabel.trim() !== "")
+            ? indicator.zoneLabel
+            : "Objetivo";
 
         // ── Layout ─────────────────────────────────────────────────────────────
         const kpiScale       = Math.max(0.5, Math.min(2.5, viewWidth / 400));
@@ -289,17 +292,11 @@ export class Visual implements IVisual {
         const gaugeAreaWidth  = Math.max(60, viewWidth - kpiPanelWidth - legendWidth - 16);
         const gaugeAreaHeight = viewHeight;
 
-        // Radio: el gauge ocupa un semicírculo + zona inferior de la abertura
-        // Con 240° de arco, el punto más bajo está en ±60° desde abajo → sin(60°)=0.866 del radio
-        // Ancho = 2*r, alto = r + r*sin(30°) = r*1.5  →  r = min(W/2, H/1.55)
         const radius   = Math.max(20, Math.min(gaugeAreaWidth / 2, gaugeAreaHeight / 1.55) - 2);
-        const rInner   = radius * 0.60;   // 60% del radio exterior = dona gruesa
+        const rInner   = radius * 0.60;
         const gaugePad = 8;
-
-        // cy: el punto más bajo del arco es cy + radius * sin(60°) = cy + radius * 0.866
-        // queremos que esté dentro del viewport
-        const cy = Math.max(radius + gaugePad, viewHeight - radius * 0.55 - gaugePad);
-        const cx = kpiPanelWidth + gaugeAreaWidth / 2;
+        const cy       = Math.max(radius + gaugePad, viewHeight - radius * 0.55 - gaugePad);
+        const cx       = kpiPanelWidth + gaugeAreaWidth / 2;
 
         const mainG = this.container.append("g");
 
@@ -315,6 +312,7 @@ export class Visual implements IVisual {
                 .attr("fill", fontColor)
                 .text(formatTextDisplay);
 
+            // FIX: texto dinámico desde campo "Zona Actual" del dataset
             kpiG.append("text")
                 .attr("x", 0).attr("y", kpiValueFs + kpiLabelFs + 4)
                 .attr("dominant-baseline", "auto").attr("text-anchor", "start")
@@ -334,7 +332,7 @@ export class Visual implements IVisual {
                 .text(mc ? mc.source.displayName : "Indicador");
         }
 
-        // ── Gauge con la nueva lógica D3 ───────────────────────────────────────
+        // ── Gauge ──────────────────────────────────────────────────────────────
         this.drawArcGauge(
             mainG, cx, cy, radius, rInner,
             finalValue, segments, globalResolvedThresholds,
@@ -369,20 +367,13 @@ export class Visual implements IVisual {
             });
         }
 
-        // ── Altura SVG ajustada ────────────────────────────────────────────────
+        // ── Altura SVG ─────────────────────────────────────────────────────────
         const ticksExtra  = showTicks ? Math.round(22 * kpiScale) : 0;
         const labelExtra  = showLabel ? Math.round(20 * kpiScale) : 0;
         const totalHeight = cy + radius * 0.58 + ticksExtra + labelExtra + gaugePad;
         this.container.style("height", `${Math.max(viewHeight, Math.ceil(totalHeight))}px`);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // drawArcGauge — implementación exacta con d3.arc() y angleScale
-    // Ángulos D3: 0 = arriba, positivo = sentido horario
-    // angleMin = -120° = -2π/3   (extremo izquierdo del arco)
-    // angleMax = +120° = +2π/3   (extremo derecho del arco)
-    // Total = 240°
-    // ─────────────────────────────────────────────────────────────────────────
     private drawArcGauge(
         g:           d3.Selection<SVGGElement, unknown, null, undefined>,
         cx:          number,
@@ -408,69 +399,55 @@ export class Visual implements IVisual {
         scale:        number = 1
     ): void {
 
-        // ── 1. Configuración de ángulos (D3 convention: 0=arriba, CW positivo) ─
-        const angleMin = -120 * (Math.PI / 180);   // -2π/3 ≈ -2.094 rad
-        const angleMax =  120 * (Math.PI / 180);   //  2π/3 ≈  2.094 rad
+        // ── Ángulos D3 (0=arriba, CW positivo) ────────────────────────────────
+        const angleMin = -120 * (Math.PI / 180);
+        const angleMax =  120 * (Math.PI / 180);
 
-        // ── 2. Escala angular: dominio de datos → ángulos D3 ──────────────────
+        // ── Escala angular ─────────────────────────────────────────────────────
         const angleScale = d3.scaleLinear()
             .domain([minVal, maxVal])
             .range([angleMin, angleMax]);
 
-        // ── 3. Generador de arcos D3 ───────────────────────────────────────────
+        // ── Generador de arcos D3 ──────────────────────────────────────────────
         const arcGenerator = d3.arc()
             .innerRadius(rInner)
             .outerRadius(radius)
             .cornerRadius(0);
 
-        // Grupo centrado en (cx, cy) — todo se dibuja desde (0,0)
         const gaugeG = g.append("g").attr("transform", `translate(${cx}, ${cy})`);
 
-        // ── 4. Track de fondo (arco completo gris) ─────────────────────────────
+        // ── Track de fondo ─────────────────────────────────────────────────────
         gaugeG.append("path")
             .attr("d", arcGenerator({
-                startAngle: angleMin,
-                endAngle:   angleMax,
-                innerRadius: rInner,
-                outerRadius: radius
+                startAngle: angleMin, endAngle: angleMax,
+                innerRadius: rInner,  outerRadius: radius
             } as any))
             .attr("fill", "#e5e5e5");
 
-        // ── 5. Segmentos de color ──────────────────────────────────────────────
+        // ── Segmentos de color ─────────────────────────────────────────────────
         segments.forEach(seg => {
             const startAngle = angleScale(seg.start);
             const endAngle   = angleScale(seg.end);
             if (Math.abs(endAngle - startAngle) < 0.001) return;
-
             gaugeG.append("path")
                 .attr("d", arcGenerator({
-                    startAngle,
-                    endAngle,
-                    innerRadius: rInner,
-                    outerRadius: radius
+                    startAngle, endAngle,
+                    innerRadius: rInner, outerRadius: radius
                 } as any))
                 .attr("fill", seg.color);
         });
 
-        // ── 6. Ticks de umbral ─────────────────────────────────────────────────
+        // ── Ticks de umbral ────────────────────────────────────────────────────
         if (showTicks) {
-            const validThresholds = thresholds.filter(t => t > minVal && t < maxVal);
-            validThresholds.forEach(t => {
-                const angle = angleScale(t);  // ángulo D3 (0=arriba, CW)
-                // Convertir ángulo D3 a coordenadas XY: x = sin(a), y = -cos(a)
-                const sinA = Math.sin(angle);
-                const cosA = Math.cos(angle);
-
-                const x1 = sinA * (rInner - 4),  y1 = -cosA * (rInner - 4);
-                const x2 = sinA * (radius + 4),  y2 = -cosA * (radius + 4);
-
+            thresholds.filter(t => t > minVal && t < maxVal).forEach(t => {
+                const angle = angleScale(t);
+                const sinA  = Math.sin(angle);
+                const cosA  = Math.cos(angle);
                 gaugeG.append("line")
-                    .attr("x1", x1).attr("y1", y1)
-                    .attr("x2", x2).attr("y2", y2)
-                    .attr("stroke", fontColor)
-                    .attr("stroke-width", 1.5).attr("opacity", 0.6);
+                    .attr("x1", sinA * (rInner - 4)).attr("y1", -cosA * (rInner - 4))
+                    .attr("x2", sinA * (radius + 4)).attr("y2", -cosA * (radius + 4))
+                    .attr("stroke", fontColor).attr("stroke-width", 1.5).attr("opacity", 0.6);
 
-                // Etiqueta del tick
                 const lblR = radius + Math.round(12 * scale);
                 gaugeG.append("text")
                     .attr("x", sinA * lblR).attr("y", -cosA * lblR)
@@ -481,28 +458,9 @@ export class Visual implements IVisual {
             });
         }
 
-        // ── 7. Etiquetas min / max en los extremos del arco ────────────────────
-        const lblOffset = radius + Math.round(14 * scale);
-        const minAngle  = angleMin;
-        const maxAngle  = angleMax;
+        // FIX: etiquetas min/max ELIMINADAS — ya no se renderizan
 
-        gaugeG.append("text")
-            .attr("x", Math.sin(minAngle) * lblOffset)
-            .attr("y", -Math.cos(minAngle) * lblOffset)
-            .attr("text-anchor", "middle").attr("dominant-baseline", "middle")
-            .attr("font-size", `${Math.max(8, Math.round((fontSize - 1) * scale))}px`)
-            .attr("fill", fontColor).attr("opacity", 0.6)
-            .text(String(minVal));
-
-        gaugeG.append("text")
-            .attr("x", Math.sin(maxAngle) * lblOffset)
-            .attr("y", -Math.cos(maxAngle) * lblOffset)
-            .attr("text-anchor", "middle").attr("dominant-baseline", "middle")
-            .attr("font-size", `${Math.max(8, Math.round((fontSize - 1) * scale))}px`)
-            .attr("fill", fontColor).attr("opacity", 0.6)
-            .text(String(maxVal));
-
-        // ── 8. Target: línea radial sobre el arco ──────────────────────────────
+        // ── Target ─────────────────────────────────────────────────────────────
         if (showTarget && targetValue != null && targetValue >= minVal && targetValue <= maxVal) {
             const angle = angleScale(targetValue);
             const sinA  = Math.sin(angle);
@@ -515,47 +473,35 @@ export class Visual implements IVisual {
                 .attr("stroke-linecap", "round");
         }
 
-        // ── 9. Base semicircular de la aguja ───────────────────────────────────
-        // Medio círculo gris oscuro de -90° a +90° (D3: -π/2 a +π/2)
+        // ── Base semicircular de la aguja ──────────────────────────────────────
         const baseRadius = Math.max(6, Math.round(markerWidth * 0.5));
-        const baseArc    = d3.arc()
-            .innerRadius(0)
-            .outerRadius(baseRadius)
-            .cornerRadius(0);
-
+        const baseArc    = d3.arc().innerRadius(0).outerRadius(baseRadius).cornerRadius(0);
         gaugeG.append("path")
             .attr("d", baseArc({
-                startAngle: -Math.PI / 2,
-                endAngle:    Math.PI / 2,
-                innerRadius: 0,
-                outerRadius: baseRadius
+                startAngle: -Math.PI / 2, endAngle: Math.PI / 2,
+                innerRadius: 0, outerRadius: baseRadius
             } as any))
             .attr("fill", "#444444");
 
-        // ── 10. Aguja: línea que rota según angleScale(value) ──────────────────
-        // La aguja se implementa como un grupo rotado — más limpio que calcular
-        // las coordenadas XY manualmente y garantiza que el eje de rotación sea (0,0)
+        // ── Aguja rotada ───────────────────────────────────────────────────────
         const needleAngleDeg = angleScale(Math.max(minVal, Math.min(maxVal, value))) * (180 / Math.PI);
-        const needleLength   = (rInner + radius) / 2;   // llega hasta el centro del arco
+        const needleLength   = (rInner + radius) / 2;
         const needleW        = Math.max(3, Math.round(markerWidth * 0.18));
 
-        const needleG = gaugeG.append("g")
-            .attr("transform", `rotate(${needleAngleDeg})`);
-
-        // Polígono de la aguja: punta arriba (y negativo = arriba en SVG tras rotate)
-        // base ancha en y=0 (el pivote), punta en y=-needleLength
-        needleG.append("polygon")
+        gaugeG.append("g")
+            .attr("transform", `rotate(${needleAngleDeg})`)
+            .append("polygon")
             .attr("points", `0,${-needleLength} ${-needleW},0 ${needleW},0`)
             .attr("fill", markerColor)
             .attr("opacity", 0.95);
 
-        // ── 11. Círculo pivot encima de todo ───────────────────────────────────
+        // ── Pivot encima ───────────────────────────────────────────────────────
         gaugeG.append("circle")
             .attr("cx", 0).attr("cy", 0)
             .attr("r", baseRadius * 0.6)
             .attr("fill", markerColor);
 
-        // ── 12. Etiqueta del valor actual ──────────────────────────────────────
+        // ── Etiqueta del valor ─────────────────────────────────────────────────
         if (showLabel) {
             const lblY      = Math.round((rInner + radius) / 2 * 0.5);
             const labelText = `${value}${unit}`;
