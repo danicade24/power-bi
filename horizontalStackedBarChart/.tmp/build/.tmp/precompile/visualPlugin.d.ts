@@ -1,4 +1,0 @@
-import powerbiVisualsApi from "powerbi-visuals-api";
-import IVisualPlugin = powerbiVisualsApi.visuals.plugins.IVisualPlugin;
-declare var horizontalStackedBarChartCCD06C282DAC4F03B39CD3D3FE2EA800: IVisualPlugin;
-export default horizontalStackedBarChartCCD06C282DAC4F03B39CD3D3FE2EA800;
