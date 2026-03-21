@@ -29,18 +29,6 @@
       "displayName": "Texto Formateado",
       "name": "formatText",
       "kind": "Measure"
-    },
-    {
-      "displayName": "Zona Actual",
-      "name": "zoneLabel",
-      "kind": "Measure",
-      "description": "Campo DAX que devuelve el nombre de la zona donde cae el valor actual (ej: 'Objetivo', 'Apetito'...). Reemplaza el texto 'Objetivo' fijo."
-    },
-    {
-      "displayName": "Etiquetas de Segmentos",
-      "name": "segmentLabels",
-      "kind": "Measure",
-      "description": "Arrastra aquí los nombres de cada segmento en el mismo orden que los umbrales (ej: '35%', '33%'...). El visual agrega ≥ o < automáticamente."
     }
   ],
 
