@@ -34,6 +34,9 @@ export class Visual implements IVisual {
     private settings: VisualSettings;
     private formattingSettingsService: FormattingSettingsService;
 
+    // Guardamos los segmentos del último render para usarlos en getFormattingModel
+    private lastSegments: Segment[] = [];
+
     constructor(options: VisualConstructorOptions) {
         this.host = options.host;
         this.formattingSettingsService = new FormattingSettingsService();
@@ -195,6 +198,11 @@ export class Visual implements IVisual {
         const showLegend = s.bar.showLegend.value as boolean;
         const unit = (s.scale.unit.value as string) ?? "";
 
+        // ── Tamaños del panel KPI — leídos del panel de formato ──────────────
+        const kpiValueFontSize = (s.labels.kpiValueFontSize.value as number) ?? 16;
+        const kpiLabelFontSize = (s.labels.kpiLabelFontSize.value as number) ?? 10;
+        // ────────────────────────────────────────────────────────────────────
+
         let dynamicMin = indicator.value;
         let dynamicMax = indicator.value;
 
@@ -250,7 +258,14 @@ export class Visual implements IVisual {
         const margin = { top: 10, right: 30, bottom: 20, left: 6 };
         if (showName) margin.top += Math.round((fontSize + 10) * widthScale);
 
-        const hasFormatText = !!indicator.formatText;
+        // ── FIX: condición robusta — evita que "", "null" o valores falsy
+        //    oculten el panel cuando el campo sí tiene datos
+        const rawFormatText = indicator.formatText;
+        const hasFormatText = rawFormatText != null
+            && String(rawFormatText).trim() !== ""
+            && String(rawFormatText).trim() !== "null";
+        const formatTextDisplay = hasFormatText ? String(rawFormatText) : "";
+
         const leftPanelWidth = hasFormatText ? 75 : 0;
         const legendWidth = showLegend ? Math.round(110 * widthScale) : 0;
         const drawWidth = Math.max(1, viewWidth - margin.left - margin.right - leftPanelWidth - legendWidth);
@@ -271,32 +286,38 @@ export class Visual implements IVisual {
         // If legend is shown and taller than bar, center bar vertically relative to legend
         const barOffsetY = (showLegend && legendTotalHeight > barH) ? Math.round((legendTotalHeight - barH) / 2) : 0;
 
-        // Left KPI Panel — only shown when formatText field is filled
+        // ── FIX: Left KPI Panel
+        // Problema original: attr("y", 0) con dominant-baseline "hanging" posicionaba
+        // el texto en y=0 absoluto del grupo, que coincide con el borde superior del SVG
+        // y quedaba recortado. Solución: usar y explícitos positivos dentro del grupo,
+        // con dominant-baseline "auto" (baseline normal), y agregar margin.top al grupo.
         if (hasFormatText) {
-            console.log('FORMAT_TEXT_VALUE:', indicator.formatText);
             const kpiG = mainG.append("g")
                 .attr("transform", `translate(0, ${currentY + barOffsetY})`);
-
+ 
+            // Valor formateado — tamaño controlado por kpiValueFontSize
             kpiG.append("text")
                 .attr("x", 0)
-                .attr("y", 0)
-                .attr("dominant-baseline", "hanging")
+                .attr("y", kpiValueFontSize)          // y = tamaño de fuente para que no se corte
+                .attr("dominant-baseline", "auto")
                 .attr("text-anchor", "start")
-                .attr("font-size", "16px")
+                .attr("font-size", `${kpiValueFontSize}px`)
                 .attr("font-weight", "bold")
                 .attr("fill", fontColor)
-                .text(indicator.formatText);
-                
+                .text(formatTextDisplay);
+ 
+            // Etiqueta "Objetivo" — justo debajo del valor
             kpiG.append("text")
                 .attr("x", 0)
-                .attr("y", 20)
-                .attr("dominant-baseline", "hanging")
+                .attr("y", kpiValueFontSize + kpiLabelFontSize + 4)   // valor + etiqueta + pequeño gap
+                .attr("dominant-baseline", "auto")
                 .attr("text-anchor", "start")
-                .attr("font-size", "10px")
+                .attr("font-size", `${kpiLabelFontSize}px`)
                 .attr("font-weight", "600")
                 .attr("fill", "#777")
                 .text("Objetivo");
         }
+        // ────────────────────────────────────────────────────────────────────
 
         const entryG = mainG.append("g")
             .attr("transform", `translate(${leftPanelWidth}, ${currentY + barOffsetY})`);
@@ -317,6 +338,35 @@ export class Visual implements IVisual {
 
         const ascending = s.order.ascending.value as boolean;
         const segments = this.buildSegments(minVal, maxVal, ascending, globalResolvedThresholds);
+
+        // ── Guardar segmentos para getFormattingModel ─────────────────────────
+        // Sincronizar numColors con el número real de segmentos para que el panel
+        // muestre exactamente los pickers correctos, con el color auto como default.
+        this.lastSegments = segments;
+        this.settings.segmentColors.numColors.value = segments.length;
+
+        // Pre-rellenar los pickers que estén vacíos con el color automático actual.
+        // Así el usuario ve el color real del segmento antes de editarlo.
+        const allColorSlices = [
+            s.segmentColors.c1,  s.segmentColors.c2,  s.segmentColors.c3,
+            s.segmentColors.c4,  s.segmentColors.c5,  s.segmentColors.c6,
+            s.segmentColors.c7,  s.segmentColors.c8,  s.segmentColors.c9,
+            s.segmentColors.c10, s.segmentColors.c11, s.segmentColors.c12,
+            s.segmentColors.c13, s.segmentColors.c14, s.segmentColors.c15,
+            s.segmentColors.c16, s.segmentColors.c17, s.segmentColors.c18,
+            s.segmentColors.c19, s.segmentColors.c20
+        ];
+
+        segments.forEach((seg, i) => {
+            if (i >= allColorSlices.length) return;
+            const current = allColorSlices[i].value?.value;
+            // Solo rellenar si está vacío — no pisar lo que el usuario ya eligió
+            if (!current || current.trim() === "") {
+                allColorSlices[i].value = { value: seg.color };
+            }
+        });
+        // ─────────────────────────────────────────────────────────────────────
+
 
         this.drawVectorBar(entryG, finalValue, segments, globalResolvedThresholds, scaleX, barH, radius,
             markerColor, markerWidth, showLabel, showTicks, unit, fontSize, fontColor, minVal, maxVal,
@@ -508,7 +558,31 @@ export class Visual implements IVisual {
 
     public getFormattingModel(): powerbi.visuals.FormattingModel {
         this.settings.thresholdsConfig.updateVisibleSlices(false);
+        
+        // Sincronizar el panel de colores con el número real de segmentos
+        // y mostrar solo los pickers necesarios con etiquetas descriptivas
+        const n = this.lastSegments.length;
+        this.settings.segmentColors.numColors.value = n;
         this.settings.segmentColors.updateVisibleSlices();
+
+        // Renombrar cada picker con el rango del segmento para que el usuario
+        // sepa qué segmento está coloreando
+        const allColorSlices = [
+            this.settings.segmentColors.c1,  this.settings.segmentColors.c2,
+            this.settings.segmentColors.c3,  this.settings.segmentColors.c4,
+            this.settings.segmentColors.c5,  this.settings.segmentColors.c6,
+            this.settings.segmentColors.c7,  this.settings.segmentColors.c8,
+            this.settings.segmentColors.c9,  this.settings.segmentColors.c10,
+            this.settings.segmentColors.c11, this.settings.segmentColors.c12,
+            this.settings.segmentColors.c13, this.settings.segmentColors.c14,
+            this.settings.segmentColors.c15, this.settings.segmentColors.c16,
+            this.settings.segmentColors.c17, this.settings.segmentColors.c18,
+            this.settings.segmentColors.c19, this.settings.segmentColors.c20
+        ];
+        this.lastSegments.forEach((seg, i) => {
+            if (i >= allColorSlices.length) return;
+            allColorSlices[i].displayName = `Seg. ${i + 1}  (${seg.start} – ${seg.end})`;
+        });
 
         this.settings.order.slices = [
             this.settings.order.ascending

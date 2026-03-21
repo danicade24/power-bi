@@ -73,6 +73,8 @@ export declare class LabelSettingsCard extends FormattingSettingsCard {
     fontSize: formattingSettings.NumUpDown;
     fontColor: formattingSettings.ColorPicker;
     showIndicatorName: formattingSettings.ToggleSwitch;
+    kpiValueFontSize: formattingSettings.NumUpDown;
+    kpiLabelFontSize: formattingSettings.NumUpDown;
     name: string;
     displayName: string;
     slices: (formattingSettings.ToggleSwitch | formattingSettings.ColorPicker | formattingSettings.NumUpDown)[];

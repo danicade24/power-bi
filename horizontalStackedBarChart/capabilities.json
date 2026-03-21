@@ -192,6 +192,18 @@
         "showIndicatorName": {
           "displayName": "Mostrar nombre del indicador",
           "type": { "bool": true }
+        },
+        "kpiValueFontSize": {
+          "displayName": "Tamaño valor formateado (px)",
+          "type": {
+            "numeric": true
+          }
+        },
+        "kpiLabelFontSize": {
+          "displayName": "Tamaño etiqueta 'Objetivo' (px)",
+          "type": {
+            "numeric": true
+          }
         }
       }
     }

@@ -8,6 +8,7 @@ export declare class Visual implements IVisual {
     private container;
     private settings;
     private formattingSettingsService;
+    private lastSegments;
     constructor(options: VisualConstructorOptions);
     update(options: VisualUpdateOptions): void;
     private extractData;
