@@ -23,14 +23,14 @@ export class OrderSettingsCard extends FormattingSettingsCard {
 }
 
 export class ThresholdsCard extends FormattingSettingsCard {
-    numThresholds = new formattingSettings.NumUpDown({ 
-        name: "numThresholds", 
-        displayName: "Umbrales adicionales (Manuales)", 
-        value: 0, 
-        options: { 
-            minValue: { type: powerbi.visuals.ValidatorType.Min, value: 0 }, 
-            maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 20 } 
-        } 
+    numThresholds = new formattingSettings.NumUpDown({
+        name: "numThresholds",
+        displayName: "Umbrales adicionales (Manuales)",
+        value: 0,
+        options: {
+            minValue: { type: powerbi.visuals.ValidatorType.Min, value: 0 },
+            maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 20 }
+        }
     });
     t1  = new formattingSettings.NumUpDown({ name: "t1",  displayName: "Umbral 1",  value: null as any });
     t2  = new formattingSettings.NumUpDown({ name: "t2",  displayName: "Umbral 2",  value: null as any });
@@ -66,19 +66,15 @@ export class ThresholdsCard extends FormattingSettingsCard {
     public getActiveThresholdsOrNulls(): (number | null)[] {
         const count = Math.max(0, Math.min(20, this.numThresholds.value ?? 0));
         const allThresholds = [this.t1, this.t2, this.t3, this.t4, this.t5, this.t6, this.t7, this.t8, this.t9, this.t10, this.t11, this.t12, this.t13, this.t14, this.t15, this.t16, this.t17, this.t18, this.t19, this.t20];
-        return allThresholds
-            .slice(0, count)
-            .map(t => typeof t.value === 'number' ? t.value : null);
+        return allThresholds.slice(0, count).map(t => typeof t.value === "number" ? t.value : null);
     }
 }
 
 export class TargetSettingsCard extends FormattingSettingsCard {
-    show  = new formattingSettings.ToggleSwitch({ name: "show", displayName: "Mostrar", value: true });
-    color = new formattingSettings.ColorPicker({ name: "color", displayName: "Color de línea", value: { value: "#ffffff" } });
+    show  = new formattingSettings.ToggleSwitch({ name: "show",  displayName: "Mostrar",        value: true });
+    color = new formattingSettings.ColorPicker({  name: "color", displayName: "Color de línea", value: { value: "#ffffff" } });
     width = new formattingSettings.NumUpDown({
-        name: "width",
-        displayName: "Grosor (px)",
-        value: 2,
+        name: "width", displayName: "Grosor (px)", value: 2,
         options: { minValue: { type: powerbi.visuals.ValidatorType.Min, value: 1 } }
     });
 
@@ -90,9 +86,7 @@ export class TargetSettingsCard extends FormattingSettingsCard {
 export class MarkerSettingsCard extends FormattingSettingsCard {
     color = new formattingSettings.ColorPicker({ name: "color", displayName: "Color", value: { value: "#1a1a1a" } });
     width = new formattingSettings.NumUpDown({
-        name: "width",
-        displayName: "Alto total del marcador",
-        value: 16,
+        name: "width", displayName: "Alto total del marcador", value: 16,
         options: { minValue: { type: powerbi.visuals.ValidatorType.Min, value: 8 } }
     });
     overrideValue = new formattingSettings.NumUpDown({ name: "overrideValue", displayName: "Valor en eje X (Manual)", value: null as any });
@@ -104,92 +98,111 @@ export class MarkerSettingsCard extends FormattingSettingsCard {
 }
 
 export class BarSettingsCard extends FormattingSettingsCard {
-    height             = new formattingSettings.NumUpDown({ name: "height", displayName: "Alto de barra", value: 20 });
-    borderRadius       = new formattingSettings.NumUpDown({ name: "borderRadius", displayName: "Esquinas redondeadas", value: 4 });
+    height             = new formattingSettings.NumUpDown({ name: "height",       displayName: "Alto de barra",            value: 20  });
+    borderRadius       = new formattingSettings.NumUpDown({ name: "borderRadius", displayName: "Esquinas redondeadas",     value: 4   });
     showThresholdTicks = new formattingSettings.ToggleSwitch({ name: "showThresholdTicks", displayName: "Mostrar marcas (ticks)", value: false });
-    showLegend         = new formattingSettings.ToggleSwitch({ name: "showLegend", displayName: "Mostrar leyenda", value: false });
+    showLegend         = new formattingSettings.ToggleSwitch({ name: "showLegend",         displayName: "Mostrar leyenda",       value: false });
+    showLegendSigns    = new formattingSettings.ToggleSwitch({ name: "showLegendSigns",     displayName: "Mostrar signos en leyenda (\u2265 / <)", value: true });
 
     name = "barSettings";
     displayName = "Configuración de Barra";
-    slices = [this.height, this.borderRadius, this.showThresholdTicks, this.showLegend];
+    slices = [this.height, this.borderRadius, this.showThresholdTicks, this.showLegend, this.showLegendSigns];
 }
 
 export class LabelSettingsCard extends FormattingSettingsCard {
-    fontSize          = new formattingSettings.NumUpDown({ name: "fontSize",          displayName: "Tamaño",   value: 12  });
-    fontColor         = new formattingSettings.ColorPicker({ name: "fontColor",       displayName: "Color",    value: { value: "#333333" } });
-    showIndicatorName = new formattingSettings.ToggleSwitch({ name: "showIndicatorName", displayName: "Mostrar nombre", value: false });
-
-    kpiValueFontSize  = new formattingSettings.NumUpDown({
-        name: "kpiValueFontSize",
-        displayName: "Tamaño valor formateado (px)",
-        value: 16,
-        options: {
-            minValue: { type: powerbi.visuals.ValidatorType.Min, value: 6  },
-            maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 72 }
-        }
-    });
-    kpiLabelFontSize  = new formattingSettings.NumUpDown({
-        name: "kpiLabelFontSize",
-        displayName: "Tamaño etiqueta 'Objetivo' (px)",
-        value: 10,
-        options: {
-            minValue: { type: powerbi.visuals.ValidatorType.Min, value: 6  },
-            maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 36 }
-        }
-    });
+    fontSize          = new formattingSettings.NumUpDown({ name: "fontSize",    displayName: "Tamaño fuente general", value: 12 });
+    fontColor         = new formattingSettings.ColorPicker({ name: "fontColor", displayName: "Color fuente general",  value: { value: "#333333" } });
+    showIndicatorName = new formattingSettings.ToggleSwitch({ name: "showIndicatorName", displayName: "Mostrar nombre del indicador", value: false });
 
     name = "labelSettings";
     displayName = "Etiquetas Generales";
+    slices = [this.fontSize, this.fontColor, this.showIndicatorName];
+}
+
+// ── Panel KPI inferior (valor formateado + zona) ──────────────────────────────
+export class KpiPanelCard extends FormattingSettingsCard {
+
+    // Tamaños
+    valueFontSize = new formattingSettings.NumUpDown({
+        name: "valueFontSize", displayName: "Tamaño valor (px)", value: 28,
+        options: { minValue: { type: powerbi.visuals.ValidatorType.Min, value: 8 }, maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 96 } }
+    });
+    zoneFontSize = new formattingSettings.NumUpDown({
+        name: "zoneFontSize", displayName: "Tamaño zona/objetivo (px)", value: 13,
+        options: { minValue: { type: powerbi.visuals.ValidatorType.Min, value: 6 }, maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 48 } }
+    });
+    legendFontSize = new formattingSettings.NumUpDown({
+        name: "legendFontSize", displayName: "Tamaño leyenda (px)", value: 11,
+        options: { minValue: { type: powerbi.visuals.ValidatorType.Min, value: 6 }, maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 32 } }
+    });
+
+    // Colores
+    valueColor = new formattingSettings.ColorPicker({
+        name: "valueColor", displayName: "Color del valor", value: { value: "#1a1a1a" }
+    });
+    zoneColor = new formattingSettings.ColorPicker({
+        name: "zoneColor", displayName: "Color de la zona/objetivo", value: { value: "#555555" }
+    });
+    legendColor = new formattingSettings.ColorPicker({
+        name: "legendColor", displayName: "Color de la leyenda", value: { value: "#333333" }
+    });
+
+    // Fuente (font-family)
+    fontFamily = new formattingSettings.TextInput({
+        name: "fontFamily", displayName: "Fuente (font-family)",
+        value: "Segoe UI", placeholder: "Segoe UI, Arial, Times New Roman..."
+    });
+
+    // Estilo
+    bold   = new formattingSettings.ToggleSwitch({ name: "bold",   displayName: "Negrita",  value: false });
+    italic = new formattingSettings.ToggleSwitch({ name: "italic", displayName: "Cursiva",  value: false });
+
+    name = "kpiPanelSettings";
+    displayName = "Panel KPI (valor y zona)";
     slices = [
-        this.fontSize,
-        this.fontColor,
-        this.showIndicatorName,
-        this.kpiValueFontSize,
-        this.kpiLabelFontSize
+        this.valueFontSize,
+        this.zoneFontSize,
+        this.legendFontSize,
+        this.valueColor,
+        this.zoneColor,
+        this.legendColor,
+        this.fontFamily,
+        this.bold,
+        this.italic
     ];
 }
 
 export class SegmentColorsCard extends FormattingSettingsCard {
-    numColors = new formattingSettings.NumUpDown({ 
-        name: "numColors", 
-        displayName: "Cantidad de segmentos a colorear",
-        description: "Pon aquí el número de segmentos del gauge para mostrar los pickers de color",
-        value: 0, 
-        options: { 
-            minValue: { type: powerbi.visuals.ValidatorType.Min, value: 0  }, 
-            maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 20 } 
-        } 
+    numColors = new formattingSettings.NumUpDown({
+        name: "numColors", displayName: "Cantidad de colores manuales", value: 0,
+        options: { minValue: { type: powerbi.visuals.ValidatorType.Min, value: 0 }, maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 20 } }
     });
-    c1  = new formattingSettings.ColorPicker({ name: "c1",  displayName: "Color Segmento 1",  value: { value: "" } });
-    c2  = new formattingSettings.ColorPicker({ name: "c2",  displayName: "Color Segmento 2",  value: { value: "" } });
-    c3  = new formattingSettings.ColorPicker({ name: "c3",  displayName: "Color Segmento 3",  value: { value: "" } });
-    c4  = new formattingSettings.ColorPicker({ name: "c4",  displayName: "Color Segmento 4",  value: { value: "" } });
-    c5  = new formattingSettings.ColorPicker({ name: "c5",  displayName: "Color Segmento 5",  value: { value: "" } });
-    c6  = new formattingSettings.ColorPicker({ name: "c6",  displayName: "Color Segmento 6",  value: { value: "" } });
-    c7  = new formattingSettings.ColorPicker({ name: "c7",  displayName: "Color Segmento 7",  value: { value: "" } });
-    c8  = new formattingSettings.ColorPicker({ name: "c8",  displayName: "Color Segmento 8",  value: { value: "" } });
-    c9  = new formattingSettings.ColorPicker({ name: "c9",  displayName: "Color Segmento 9",  value: { value: "" } });
-    c10 = new formattingSettings.ColorPicker({ name: "c10", displayName: "Color Segmento 10", value: { value: "" } });
-    c11 = new formattingSettings.ColorPicker({ name: "c11", displayName: "Color Segmento 11", value: { value: "" } });
-    c12 = new formattingSettings.ColorPicker({ name: "c12", displayName: "Color Segmento 12", value: { value: "" } });
-    c13 = new formattingSettings.ColorPicker({ name: "c13", displayName: "Color Segmento 13", value: { value: "" } });
-    c14 = new formattingSettings.ColorPicker({ name: "c14", displayName: "Color Segmento 14", value: { value: "" } });
-    c15 = new formattingSettings.ColorPicker({ name: "c15", displayName: "Color Segmento 15", value: { value: "" } });
-    c16 = new formattingSettings.ColorPicker({ name: "c16", displayName: "Color Segmento 16", value: { value: "" } });
-    c17 = new formattingSettings.ColorPicker({ name: "c17", displayName: "Color Segmento 17", value: { value: "" } });
-    c18 = new formattingSettings.ColorPicker({ name: "c18", displayName: "Color Segmento 18", value: { value: "" } });
-    c19 = new formattingSettings.ColorPicker({ name: "c19", displayName: "Color Segmento 19", value: { value: "" } });
-    c20 = new formattingSettings.ColorPicker({ name: "c20", displayName: "Color Segmento 20", value: { value: "" } });
+    c1  = new formattingSettings.ColorPicker({ name: "c1",  displayName: "Color 1",  value: { value: "" } });
+    c2  = new formattingSettings.ColorPicker({ name: "c2",  displayName: "Color 2",  value: { value: "" } });
+    c3  = new formattingSettings.ColorPicker({ name: "c3",  displayName: "Color 3",  value: { value: "" } });
+    c4  = new formattingSettings.ColorPicker({ name: "c4",  displayName: "Color 4",  value: { value: "" } });
+    c5  = new formattingSettings.ColorPicker({ name: "c5",  displayName: "Color 5",  value: { value: "" } });
+    c6  = new formattingSettings.ColorPicker({ name: "c6",  displayName: "Color 6",  value: { value: "" } });
+    c7  = new formattingSettings.ColorPicker({ name: "c7",  displayName: "Color 7",  value: { value: "" } });
+    c8  = new formattingSettings.ColorPicker({ name: "c8",  displayName: "Color 8",  value: { value: "" } });
+    c9  = new formattingSettings.ColorPicker({ name: "c9",  displayName: "Color 9",  value: { value: "" } });
+    c10 = new formattingSettings.ColorPicker({ name: "c10", displayName: "Color 10", value: { value: "" } });
+    c11 = new formattingSettings.ColorPicker({ name: "c11", displayName: "Color 11", value: { value: "" } });
+    c12 = new formattingSettings.ColorPicker({ name: "c12", displayName: "Color 12", value: { value: "" } });
+    c13 = new formattingSettings.ColorPicker({ name: "c13", displayName: "Color 13", value: { value: "" } });
+    c14 = new formattingSettings.ColorPicker({ name: "c14", displayName: "Color 14", value: { value: "" } });
+    c15 = new formattingSettings.ColorPicker({ name: "c15", displayName: "Color 15", value: { value: "" } });
+    c16 = new formattingSettings.ColorPicker({ name: "c16", displayName: "Color 16", value: { value: "" } });
+    c17 = new formattingSettings.ColorPicker({ name: "c17", displayName: "Color 17", value: { value: "" } });
+    c18 = new formattingSettings.ColorPicker({ name: "c18", displayName: "Color 18", value: { value: "" } });
+    c19 = new formattingSettings.ColorPicker({ name: "c19", displayName: "Color 19", value: { value: "" } });
+    c20 = new formattingSettings.ColorPicker({ name: "c20", displayName: "Color 20", value: { value: "" } });
 
     name = "segmentColorsSettings";
     displayName = "Sobrescribir Colores de Segmentos";
     slices = [this.numColors, this.c1, this.c2, this.c3, this.c4, this.c5, this.c6, this.c7, this.c8, this.c9, this.c10, this.c11, this.c12, this.c13, this.c14, this.c15, this.c16, this.c17, this.c18, this.c19, this.c20];
 
-    public updateVisibleSlices(numSegments?: number) {
-        // Si se pasa numSegments, actualizar numColors automáticamente
-        if (numSegments !== undefined) {
-            this.numColors.value = numSegments;
-        }
+    public updateVisibleSlices() {
         const count = Math.max(0, Math.min(20, this.numColors.value ?? 0));
         const allColors = [this.c1, this.c2, this.c3, this.c4, this.c5, this.c6, this.c7, this.c8, this.c9, this.c10, this.c11, this.c12, this.c13, this.c14, this.c15, this.c16, this.c17, this.c18, this.c19, this.c20];
         this.slices = [this.numColors, ...allColors.slice(0, count)];
@@ -229,6 +242,7 @@ export class VisualSettings extends FormattingSettingsModel {
     bar              = new BarSettingsCard();
     labels           = new LabelSettingsCard();
     target           = new TargetSettingsCard();
+    kpiPanel         = new KpiPanelCard();       // ← nueva tarjeta
 
-    cards = [this.scale, this.bar, this.order, this.marker, this.thresholdsConfig, this.segmentColors, this.labels, this.target];
+    cards = [this.scale, this.bar, this.order, this.marker, this.thresholdsConfig, this.segmentColors, this.labels, this.target, this.kpiPanel];
 }
