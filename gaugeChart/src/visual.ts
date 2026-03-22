@@ -29,6 +29,15 @@ interface Segment {
     color: string;
 }
 
+const ZONE_NAMES_ASC = [
+    "Fuera de la Tolerancia",
+    "Tolerancia 3",
+    "Tolerancia 2",
+    "Tolerancia 1",
+    "Apetito",
+    "Objetivo"
+].reverse();
+
 export class Visual implements IVisual {
     private static clipIdCounter = 0;
     private host:                      IVisualHost;
@@ -51,7 +60,6 @@ export class Visual implements IVisual {
     }
 
     public update(options: VisualUpdateOptions): void {
-        console.log("DATOS RECIBIDOS DE PBI:", options.dataViews);
         this.container.selectAll("*").remove();
 
         this.settings = this.formattingSettingsService.populateFormattingSettingsModel(
@@ -86,21 +94,20 @@ export class Visual implements IVisual {
         let formatTextStr:    string | null = null;
         let zoneLabelStr:     string | null = null;
 
-        cat.values?.forEach(valueCol => {
-            if (valueCol.source.roles["measure"])       measureCol = valueCol;
-            if (valueCol.source.roles["target"])        targetCol  = valueCol;
-            if (valueCol.source.roles["min"])           minCol     = valueCol;
-            if (valueCol.source.roles["max"])           maxCol     = valueCol;
-            if (valueCol.source.roles["thresholds"])    thresholdCols.push(valueCol);
-            if (valueCol.source.roles["segmentLabels"]) segmentLabelCols.push(valueCol);
-
-            if (valueCol.source.roles["formatText"]) {
-                const tv = valueCol.values[0];
-                formatTextStr = tv != null ? String(tv) : null;
+        cat.values?.forEach(col => {
+            if (col.source.roles["measure"])       measureCol = col;
+            if (col.source.roles["target"])        targetCol  = col;
+            if (col.source.roles["min"])           minCol     = col;
+            if (col.source.roles["max"])           maxCol     = col;
+            if (col.source.roles["thresholds"])    thresholdCols.push(col);
+            if (col.source.roles["segmentLabels"]) segmentLabelCols.push(col);
+            if (col.source.roles["formatText"]) {
+                const v = col.values[0];
+                formatTextStr = v != null ? String(v) : null;
             }
-            if (valueCol.source.roles["zoneLabel"]) {
-                const tv = valueCol.values[0];
-                zoneLabelStr = (tv != null && String(tv).trim() !== "") ? String(tv) : null;
+            if (col.source.roles["zoneLabel"]) {
+                const v = col.values[0];
+                zoneLabelStr = (v != null && String(v).trim() !== "") ? String(v) : null;
             }
         });
 
@@ -109,34 +116,26 @@ export class Visual implements IVisual {
         const getVal = (col: powerbi.DataViewValueColumn | undefined) => {
             const v = col?.values[0];
             if (v == null || v === "") return null;
-            const num = Number(v);
-            return isNaN(num) ? null : num;
+            const n = Number(v);
+            return isNaN(n) ? null : n;
         };
-
-        const dataThresholds = thresholdCols.map(col => getVal(col)).filter(v => v != null) as number[];
-        const segmentLabels  = segmentLabelCols.map(col => {
-            const v = col.values[0];
-            return (v == null || v === "") ? "" : String(v).trim();
-        });
 
         return {
             value:         getVal(measureCol) ?? 0,
             target:        getVal(targetCol),
             dataMin:       getVal(minCol),
             dataMax:       getVal(maxCol),
-            dataThresholds,
+            dataThresholds: thresholdCols.map(c => getVal(c)).filter(v => v != null) as number[],
             formatText:    formatTextStr,
             zoneLabel:     zoneLabelStr,
-            segmentLabels
+            segmentLabels: segmentLabelCols.map(c => {
+                const v = c.values[0];
+                return (v == null || v === "") ? "" : String(v).trim();
+            })
         };
     }
 
-    private buildSegments(
-        minVal:    number,
-        maxVal:    number,
-        ascending: boolean,
-        tValues:   number[]
-    ): Segment[] {
+    private buildSegments(minVal: number, maxVal: number, ascending: boolean, tValues: number[]): Segment[] {
         let rootColors = ["#00A651", "#84C225", "#FFFF00", "#FFA500", "#FF5500", "#FF0000"];
         if (!ascending) rootColors = rootColors.slice().reverse();
 
@@ -157,23 +156,41 @@ export class Visual implements IVisual {
         return segs;
     }
 
+    private resolveZoneName(value: number, segments: Segment[], ascending: boolean, daxZone: string | null): string {
+        if (daxZone && daxZone.trim() !== "") return daxZone;
+        if (segments.length === 0) return "Objetivo";
+
+        let segIndex = segments.findIndex((seg, i) =>
+            i < segments.length - 1
+                ? value >= seg.start && value < seg.end
+                : value >= seg.start && value <= seg.end
+        );
+        if (segIndex === -1) segIndex = value <= segments[0].start ? 0 : segments.length - 1;
+
+        const nameIndex    = ascending ? segIndex : (segments.length - 1 - segIndex);
+        const clampedIndex = Math.max(0, Math.min(nameIndex, ZONE_NAMES_ASC.length - 1));
+        return ZONE_NAMES_ASC[clampedIndex];
+    }
+
     private buildLegendLabel(
-        seg:           Segment,
-        segIndex:      number,
-        totalSegs:     number,
-        segmentLabels: string[],
-        ascending:     boolean,
-        unit:          string
+        seg: Segment, segIndex: number, totalSegs: number,
+        segmentLabels: string[], ascending: boolean, unit: string, showSigns: boolean
     ): string {
-        const dataLabel = segmentLabels[segIndex];
-        if (dataLabel && dataLabel.trim() !== "") {
-            if (totalSegs === 1) return dataLabel;
-            if (ascending) {
-                return segIndex === 0 ? `< ${dataLabel}` : `\u2265 ${dataLabel}`;
-            } else {
-                return segIndex === totalSegs - 1 ? `< ${dataLabel}` : `\u2265 ${dataLabel}`;
-            }
+        const base = (segmentLabels[segIndex] && segmentLabels[segIndex].trim() !== "")
+            ? segmentLabels[segIndex] : null;
+
+        if (!showSigns) {
+            if (base) return base;
+            if (totalSegs === 1) return `${seg.start}${unit} \u2013 ${seg.end}${unit}`;
+            return `${seg.start} \u2013 ${seg.end}${unit}`;
         }
+
+        if (base) {
+            if (totalSegs === 1) return base;
+            if (ascending) return segIndex === 0 ? `< ${base}` : `\u2265 ${base}`;
+            return segIndex === totalSegs - 1 ? `< ${base}` : `\u2265 ${base}`;
+        }
+
         if (totalSegs === 1) return `${seg.start}${unit} \u2013 ${seg.end}${unit}`;
         if (segIndex === 0)             return `\u2264 ${seg.end}${unit}`;
         if (segIndex === totalSegs - 1) return `\u2265 ${seg.start}${unit}`;
@@ -189,64 +206,72 @@ export class Visual implements IVisual {
             .text(msg);
     }
 
-    private render(
-        indicator:  SingleIndicatorData,
-        viewWidth:  number,
-        viewHeight: number,
-        options:    VisualUpdateOptions
-    ): void {
+    private render(indicator: SingleIndicatorData, viewWidth: number, viewHeight: number, options: VisualUpdateOptions): void {
         const s = this.settings;
 
-        const arcThickness     = Math.max(8,  (s.bar.height.value      as number) ?? 22);
-        const fontSize         = (s.labels.fontSize.value              as number) ?? 12;
-        const fontColor        = (s.labels.fontColor.value  as any)?.value ?? "#333333";
-        const markerColor      = (s.marker.color.value      as any)?.value ?? "#333333";
-        const markerWidth      = (s.marker.width.value      as number) ?? 16;
-        const showLabel        = s.marker.showLabel.value              as boolean;
-        const targetColor      = (s.target.color.value      as any)?.value ?? "#ffffff";
-        const targetWidth      = (s.target.width.value      as number) ?? 2;
-        const showTarget       = s.target.show.value                   as boolean;
-        const showName         = s.labels.showIndicatorName.value      as boolean;
-        const showTicks        = s.bar.showThresholdTicks.value        as boolean;
-        const showLegend       = s.bar.showLegend.value                as boolean;
-        const unit             = (s.scale.unit.value        as string) ?? "";
-        const kpiValueFontSize = (s.labels.kpiValueFontSize.value      as number) ?? 16;
-        const kpiLabelFontSize = (s.labels.kpiLabelFontSize.value      as number) ?? 10;
-        const ascending        = s.order.ascending.value               as boolean;
+        // ── Leer settings ──────────────────────────────────────────────────────
+        const arcThickness    = Math.max(8,  (s.bar.height.value      as number) ?? 22);
+        const fontSize        = (s.labels.fontSize.value              as number) ?? 12;
+        const fontColor       = (s.labels.fontColor.value  as any)?.value ?? "#333333";
+        const markerColor     = (s.marker.color.value      as any)?.value ?? "#333333";
+        const markerWidth     = (s.marker.width.value      as number) ?? 16;
+        const showLabel       = s.marker.showLabel.value              as boolean;
+        const targetColor     = (s.target.color.value      as any)?.value ?? "#ffffff";
+        const targetWidth     = (s.target.width.value      as number) ?? 2;
+        const showTarget      = s.target.show.value                   as boolean;
+        const showName        = s.labels.showIndicatorName.value      as boolean;
+        const showTicks       = s.bar.showThresholdTicks.value        as boolean;
+        const showLegend      = s.bar.showLegend.value                as boolean;
+        const showLegendSigns = s.bar.showLegendSigns.value           as boolean;
+        const unit            = (s.scale.unit.value        as string) ?? "";
+        const ascending       = s.order.ascending.value               as boolean;
+
+        // ── KPI panel settings ─────────────────────────────────────────────────
+        const kpi            = s.kpiPanel;
+        const kpiFontFamily  = (kpi.fontFamily.value  as string) || "Segoe UI";
+        const kpiBold        = kpi.bold.value   as boolean;
+        const kpiItalic      = kpi.italic.value as boolean;
+        const kpiFontWeight  = kpiBold   ? "bold"   : "normal";
+        const kpiFontStyle   = kpiItalic ? "italic" : "normal";
+        const valueFs        = (kpi.valueFontSize.value  as number) ?? 28;
+        const zoneFs         = (kpi.zoneFontSize.value   as number) ?? 13;
+        const legendFs       = (kpi.legendFontSize.value as number) ?? 11;
+        const valueColor     = (kpi.valueColor.value  as any)?.value ?? "#1a1a1a";
+        const zoneColor      = (kpi.zoneColor.value   as any)?.value ?? "#555555";
+        const legendColor    = (kpi.legendColor.value as any)?.value ?? "#333333";
 
         // ── Min / max / thresholds ─────────────────────────────────────────────
         let dynamicMin = indicator.value;
         let dynamicMax = indicator.value;
 
-        const rawManualThresholds = s.thresholdsConfig.getActiveThresholdsOrNulls();
-        const manualThresholds    = rawManualThresholds.filter((t): t is number => t != null);
+        const rawManual    = s.thresholdsConfig.getActiveThresholdsOrNulls();
+        const manualThresh = rawManual.filter((t): t is number => t != null);
 
         if (indicator.target != null && !isNaN(indicator.target)) {
-            if (indicator.target > dynamicMax) dynamicMax = indicator.target;
-            if (indicator.target < dynamicMin) dynamicMin = indicator.target;
+            dynamicMax = Math.max(dynamicMax, indicator.target);
+            dynamicMin = Math.min(dynamicMin, indicator.target);
         }
-        if (indicator.dataMax != null && !isNaN(indicator.dataMax) && indicator.dataMax > dynamicMax) dynamicMax = indicator.dataMax;
-        if (indicator.dataMin != null && !isNaN(indicator.dataMin) && indicator.dataMin < dynamicMin) dynamicMin = indicator.dataMin;
-        indicator.dataThresholds.forEach(t => { if (!isNaN(t)) { if (t > dynamicMax) dynamicMax = t; if (t < dynamicMin) dynamicMin = t; } });
-        manualThresholds.forEach(t => { if (!isNaN(t)) { if (t > dynamicMax) dynamicMax = t; if (t < dynamicMin) dynamicMin = t; } });
+        if (indicator.dataMax != null && !isNaN(indicator.dataMax)) dynamicMax = Math.max(dynamicMax, indicator.dataMax);
+        if (indicator.dataMin != null && !isNaN(indicator.dataMin)) dynamicMin = Math.min(dynamicMin, indicator.dataMin);
+        indicator.dataThresholds.forEach(t => { if (!isNaN(t)) { dynamicMax = Math.max(dynamicMax, t); dynamicMin = Math.min(dynamicMin, t); } });
+        manualThresh.forEach(t => { if (!isNaN(t)) { dynamicMax = Math.max(dynamicMax, t); dynamicMin = Math.min(dynamicMin, t); } });
         if (dynamicMax === dynamicMin) dynamicMax = dynamicMin + 1;
 
         let minVal = (s.scale.minValue.value != null && s.scale.minValue.value !== ("" as any))
             ? Number(s.scale.minValue.value)
-            : (indicator.dataMin != null && !isNaN(indicator.dataMin) ? indicator.dataMin : dynamicMin);
+            : (indicator.dataMin != null ? indicator.dataMin : dynamicMin);
         let maxVal = (s.scale.maxValue.value != null && s.scale.maxValue.value !== ("" as any))
             ? Number(s.scale.maxValue.value)
-            : (indicator.dataMax != null && !isNaN(indicator.dataMax) ? indicator.dataMax : dynamicMax);
+            : (indicator.dataMax != null ? indicator.dataMax : dynamicMax);
         if (minVal >= maxVal) maxVal = minVal + 1;
 
-        const dataThresholds = indicator.dataThresholds.filter(t => !isNaN(t));
-        const globalSet      = new Set<number>();
-        dataThresholds.forEach(t => globalSet.add(t));
-        manualThresholds.forEach(t => globalSet.add(t));
-        const globalResolvedThresholds = Array.from(globalSet).sort((a, b) => a - b);
+        const globalSet = new Set<number>();
+        indicator.dataThresholds.filter(t => !isNaN(t)).forEach(t => globalSet.add(t));
+        manualThresh.forEach(t => globalSet.add(t));
+        const globalThresholds = Array.from(globalSet).sort((a, b) => a - b);
 
         // ── Segmentos ──────────────────────────────────────────────────────────
-        const segments = this.buildSegments(minVal, maxVal, ascending, globalResolvedThresholds);
+        const segments = this.buildSegments(minVal, maxVal, ascending, globalThresholds);
         this.lastSegments = segments;
         this.settings.segmentColors.numColors.value = segments.length;
 
@@ -269,57 +294,34 @@ export class Visual implements IVisual {
         const finalValue    = (overrideValue != null && overrideValue !== ("" as any))
             ? overrideValue as number : indicator.value;
 
-        // ── Panel KPI ──────────────────────────────────────────────────────────
-        const rawFormatText    = indicator.formatText;
-        const hasFormatText    = rawFormatText != null
-            && String(rawFormatText).trim() !== ""
-            && String(rawFormatText).trim() !== "null";
-        const formatTextDisplay = hasFormatText ? String(rawFormatText) : "";
+        // ── Zona ───────────────────────────────────────────────────────────────
+        const zoneLabelDisplay = this.resolveZoneName(finalValue, segments, ascending, indicator.zoneLabel);
 
-        // FIX: zona dinámica del dataset — si no hay campo conectado muestra "Objetivo"
-        const zoneLabelDisplay = (indicator.zoneLabel && indicator.zoneLabel.trim() !== "")
-            ? indicator.zoneLabel
-            : "Objetivo";
+        // ── Texto formateado ───────────────────────────────────────────────────
+        const rawFmt        = indicator.formatText;
+        const hasFormatText = rawFmt != null && String(rawFmt).trim() !== "" && String(rawFmt).trim() !== "null";
+        const fmtDisplay    = hasFormatText ? String(rawFmt) : "";
 
         // ── Layout ─────────────────────────────────────────────────────────────
-        const kpiScale       = Math.max(0.5, Math.min(2.5, viewWidth / 400));
-        const kpiValueFs     = Math.round(kpiValueFontSize * kpiScale);
-        const kpiLabelFs     = Math.round(kpiLabelFontSize * kpiScale);
-        const kpiPanelWidth  = hasFormatText ? Math.max(60, kpiValueFs * 3.5) : 0;
-        const kpiPanelHeight = kpiValueFs + kpiLabelFs + 8;
-        const legendWidth    = showLegend ? Math.max(90, Math.round(110 * kpiScale)) : 0;
+        // El panel KPI va DEBAJO del gauge — reservamos espacio inferior
+        const kpiBlockHeight = (hasFormatText ? valueFs + 6 : 0) + zoneFs + 10;
+        const legendWidth    = showLegend ? Math.max(80, legendFs * 9) : 0;
 
-        const gaugeAreaWidth  = Math.max(60, viewWidth - kpiPanelWidth - legendWidth - 16);
-        const gaugeAreaHeight = viewHeight;
+        const gaugeAreaWidth  = Math.max(60, viewWidth - legendWidth - 8);
+        // Altura disponible para el gauge = viewport - bloque KPI inferior
+        const gaugeAreaHeight = Math.max(60, viewHeight - kpiBlockHeight - 10);
 
-        const radius   = Math.max(20, Math.min(gaugeAreaWidth / 2, gaugeAreaHeight / 1.55) - 2);
-        const rInner   = radius * 0.60;
-        const gaugePad = 8;
-        const cy       = Math.max(radius + gaugePad, viewHeight - radius * 0.55 - gaugePad);
-        const cx       = kpiPanelWidth + gaugeAreaWidth / 2;
+        const scale  = Math.max(0.5, Math.min(2.5, viewWidth / 400));
+        const radius = Math.max(20, Math.min(gaugeAreaWidth / 2, gaugeAreaHeight / 1.55) - 2);
+        const rInner = radius * 0.60;
+        const pad    = 8;
+
+        // Centro del gauge: cx centrado en el área del gauge (sin leyenda)
+        const cx = gaugeAreaWidth / 2;
+        // cy: el arco baja hasta cy + radius*sin(30°), queremos que quepa en gaugeAreaHeight
+        const cy = Math.max(radius + pad, gaugeAreaHeight - radius * 0.55 - pad);
 
         const mainG = this.container.append("g");
-
-        // ── Panel KPI izquierdo ────────────────────────────────────────────────
-        if (hasFormatText) {
-            const kpiY = cy - kpiPanelHeight / 2;
-            const kpiG = mainG.append("g").attr("transform", `translate(4, ${kpiY})`);
-
-            kpiG.append("text")
-                .attr("x", 0).attr("y", kpiValueFs)
-                .attr("dominant-baseline", "auto").attr("text-anchor", "start")
-                .attr("font-size", `${kpiValueFs}px`).attr("font-weight", "bold")
-                .attr("fill", fontColor)
-                .text(formatTextDisplay);
-
-            // FIX: texto dinámico desde campo "Zona Actual" del dataset
-            kpiG.append("text")
-                .attr("x", 0).attr("y", kpiValueFs + kpiLabelFs + 4)
-                .attr("dominant-baseline", "auto").attr("text-anchor", "start")
-                .attr("font-size", `${kpiLabelFs}px`).attr("font-weight", "600")
-                .attr("fill", "#777")
-                .text(zoneLabelDisplay);
-        }
 
         // ── Nombre del indicador ───────────────────────────────────────────────
         if (showName) {
@@ -327,7 +329,8 @@ export class Visual implements IVisual {
             mainG.append("text")
                 .attr("x", cx).attr("y", cy - radius - 6)
                 .attr("text-anchor", "middle")
-                .attr("font-size", `${Math.round(fontSize * kpiScale)}px`).attr("font-weight", "500")
+                .attr("font-size", `${Math.round(fontSize * scale)}px`)
+                .attr("font-weight", "500")
                 .attr("fill", fontColor)
                 .text(mc ? mc.source.displayName : "Indicador");
         }
@@ -335,122 +338,142 @@ export class Visual implements IVisual {
         // ── Gauge ──────────────────────────────────────────────────────────────
         this.drawArcGauge(
             mainG, cx, cy, radius, rInner,
-            finalValue, segments, globalResolvedThresholds,
+            finalValue, segments, globalThresholds,
             minVal, maxVal,
             markerColor, markerWidth,
             showLabel, showTicks,
             unit, fontSize, fontColor,
             indicator.target, targetColor, targetWidth, showTarget,
-            kpiScale
+            scale
         );
+
+        // ── Panel KPI DEBAJO del gauge ─────────────────────────────────────────
+        // Posición Y: justo debajo del punto más bajo del arco
+        const kpiBaseY = cy + radius * 0.58 + pad + 4;
+
+        if (hasFormatText) {
+            // Valor formateado grande
+            mainG.append("text")
+                .attr("x", cx)
+                .attr("y", kpiBaseY + valueFs)
+                .attr("text-anchor", "middle")
+                .attr("dominant-baseline", "auto")
+                .attr("font-size",   `${valueFs}px`)
+                .attr("font-weight", kpiFontWeight)
+                .attr("font-style",  kpiFontStyle)
+                .attr("font-family", kpiFontFamily)
+                .attr("fill", valueColor)
+                .text(fmtDisplay);
+
+            // Zona / objetivo debajo del valor
+            mainG.append("text")
+                .attr("x", cx)
+                .attr("y", kpiBaseY + valueFs + zoneFs + 4)
+                .attr("text-anchor", "middle")
+                .attr("dominant-baseline", "auto")
+                .attr("font-size",   `${zoneFs}px`)
+                .attr("font-weight", kpiFontWeight)
+                .attr("font-style",  kpiFontStyle)
+                .attr("font-family", kpiFontFamily)
+                .attr("fill", zoneColor)
+                .text(zoneLabelDisplay);
+        } else {
+            // Solo zona si no hay formatText
+            mainG.append("text")
+                .attr("x", cx)
+                .attr("y", kpiBaseY + zoneFs)
+                .attr("text-anchor", "middle")
+                .attr("dominant-baseline", "auto")
+                .attr("font-size",   `${zoneFs}px`)
+                .attr("font-weight", kpiFontWeight)
+                .attr("font-style",  kpiFontStyle)
+                .attr("font-family", kpiFontFamily)
+                .attr("fill", zoneColor)
+                .text(zoneLabelDisplay);
+        }
 
         // ── Leyenda derecha ────────────────────────────────────────────────────
         if (showLegend) {
-            const legendX = kpiPanelWidth + gaugeAreaWidth + 8;
+            const legendX = gaugeAreaWidth + 8;
             const legendG = mainG.append("g")
-                .attr("transform", `translate(${legendX}, ${cy - (segments.length * 16 * kpiScale) / 2})`);
+                .attr("transform", `translate(${legendX}, ${cy - (segments.length * (legendFs + 5)) / 2})`);
             let legY = 0;
 
             segments.forEach((seg, i) => {
                 const labelStr = this.buildLegendLabel(
-                    seg, i, segments.length, indicator.segmentLabels, ascending, unit
+                    seg, i, segments.length, indicator.segmentLabels, ascending, unit, showLegendSigns
                 );
-                legendG.append("circle")
-                    .attr("cx", 0).attr("cy", legY - 3)
-                    .attr("r", Math.round(5 * kpiScale)).attr("fill", seg.color);
+
+                // Cuadrado de color (más visible que círculo para la leyenda)
+                legendG.append("rect")
+                    .attr("x", 0).attr("y", legY - legendFs * 0.8)
+                    .attr("width", legendFs).attr("height", legendFs)
+                    .attr("rx", 2)
+                    .attr("fill", seg.color);
+
                 legendG.append("text")
-                    .attr("x", Math.round(12 * kpiScale)).attr("y", legY)
-                    .attr("font-size", `${Math.round(Math.max(9, fontSize - 1) * kpiScale)}px`)
-                    .attr("fill", fontColor).attr("font-weight", "500")
+                    .attr("x", legendFs + 5).attr("y", legY)
+                    .attr("font-size",   `${legendFs}px`)
+                    .attr("font-weight", kpiFontWeight)
+                    .attr("font-style",  kpiFontStyle)
+                    .attr("font-family", kpiFontFamily)
+                    .attr("fill", legendColor)
                     .text(labelStr);
-                legY += Math.round(16 * kpiScale);
+
+                legY += legendFs + 5;
             });
         }
 
-        // ── Altura SVG ─────────────────────────────────────────────────────────
-        const ticksExtra  = showTicks ? Math.round(22 * kpiScale) : 0;
-        const labelExtra  = showLabel ? Math.round(20 * kpiScale) : 0;
-        const totalHeight = cy + radius * 0.58 + ticksExtra + labelExtra + gaugePad;
+        // ── Altura SVG ajustada ────────────────────────────────────────────────
+        const totalHeight = kpiBaseY + (hasFormatText ? valueFs + zoneFs + 10 : zoneFs + 10);
         this.container.style("height", `${Math.max(viewHeight, Math.ceil(totalHeight))}px`);
     }
 
     private drawArcGauge(
-        g:           d3.Selection<SVGGElement, unknown, null, undefined>,
-        cx:          number,
-        cy:          number,
-        radius:      number,
-        rInner:      number,
-        value:       number,
-        segments:    Segment[],
-        thresholds:  number[],
-        minVal:      number,
-        maxVal:      number,
-        markerColor: string,
-        markerWidth: number,
-        showLabel:   boolean,
-        showTicks:   boolean,
-        unit:        string,
-        fontSize:    number,
-        fontColor:   string,
-        targetValue?: number | null,
-        targetColor?: string,
-        targetWidth?: number,
-        showTarget?:  boolean,
-        scale:        number = 1
+        g: d3.Selection<SVGGElement, unknown, null, undefined>,
+        cx: number, cy: number, radius: number, rInner: number,
+        value: number, segments: Segment[], thresholds: number[],
+        minVal: number, maxVal: number,
+        markerColor: string, markerWidth: number,
+        showLabel: boolean, showTicks: boolean,
+        unit: string, fontSize: number, fontColor: string,
+        targetValue?: number | null, targetColor?: string, targetWidth?: number, showTarget?: boolean,
+        scale: number = 1
     ): void {
-
-        // ── Ángulos D3 (0=arriba, CW positivo) ────────────────────────────────
         const angleMin = -120 * (Math.PI / 180);
         const angleMax =  120 * (Math.PI / 180);
 
-        // ── Escala angular ─────────────────────────────────────────────────────
-        const angleScale = d3.scaleLinear()
-            .domain([minVal, maxVal])
-            .range([angleMin, angleMax]);
+        const angleScale = d3.scaleLinear().domain([minVal, maxVal]).range([angleMin, angleMax]);
+        const arcGen     = d3.arc().innerRadius(rInner).outerRadius(radius).cornerRadius(0);
+        const gaugeG     = g.append("g").attr("transform", `translate(${cx}, ${cy})`);
 
-        // ── Generador de arcos D3 ──────────────────────────────────────────────
-        const arcGenerator = d3.arc()
-            .innerRadius(rInner)
-            .outerRadius(radius)
-            .cornerRadius(0);
-
-        const gaugeG = g.append("g").attr("transform", `translate(${cx}, ${cy})`);
-
-        // ── Track de fondo ─────────────────────────────────────────────────────
+        // Track fondo
         gaugeG.append("path")
-            .attr("d", arcGenerator({
-                startAngle: angleMin, endAngle: angleMax,
-                innerRadius: rInner,  outerRadius: radius
-            } as any))
+            .attr("d", arcGen({ startAngle: angleMin, endAngle: angleMax, innerRadius: rInner, outerRadius: radius } as any))
             .attr("fill", "#e5e5e5");
 
-        // ── Segmentos de color ─────────────────────────────────────────────────
+        // Segmentos
         segments.forEach(seg => {
-            const startAngle = angleScale(seg.start);
-            const endAngle   = angleScale(seg.end);
-            if (Math.abs(endAngle - startAngle) < 0.001) return;
+            const sa = angleScale(seg.start);
+            const ea = angleScale(seg.end);
+            if (Math.abs(ea - sa) < 0.001) return;
             gaugeG.append("path")
-                .attr("d", arcGenerator({
-                    startAngle, endAngle,
-                    innerRadius: rInner, outerRadius: radius
-                } as any))
+                .attr("d", arcGen({ startAngle: sa, endAngle: ea, innerRadius: rInner, outerRadius: radius } as any))
                 .attr("fill", seg.color);
         });
 
-        // ── Ticks de umbral ────────────────────────────────────────────────────
+        // Ticks
         if (showTicks) {
             thresholds.filter(t => t > minVal && t < maxVal).forEach(t => {
-                const angle = angleScale(t);
-                const sinA  = Math.sin(angle);
-                const cosA  = Math.cos(angle);
+                const a    = angleScale(t);
+                const sinA = Math.sin(a), cosA = Math.cos(a);
                 gaugeG.append("line")
                     .attr("x1", sinA * (rInner - 4)).attr("y1", -cosA * (rInner - 4))
                     .attr("x2", sinA * (radius + 4)).attr("y2", -cosA * (radius + 4))
                     .attr("stroke", fontColor).attr("stroke-width", 1.5).attr("opacity", 0.6);
-
-                const lblR = radius + Math.round(12 * scale);
+                const lr = radius + Math.round(12 * scale);
                 gaugeG.append("text")
-                    .attr("x", sinA * lblR).attr("y", -cosA * lblR)
+                    .attr("x", sinA * lr).attr("y", -cosA * lr)
                     .attr("text-anchor", "middle").attr("dominant-baseline", "middle")
                     .attr("font-size", `${Math.max(8, Math.round((fontSize - 2) * scale))}px`)
                     .attr("fill", fontColor).attr("opacity", 0.65)
@@ -458,13 +481,10 @@ export class Visual implements IVisual {
             });
         }
 
-        // FIX: etiquetas min/max ELIMINADAS — ya no se renderizan
-
-        // ── Target ─────────────────────────────────────────────────────────────
+        // Target
         if (showTarget && targetValue != null && targetValue >= minVal && targetValue <= maxVal) {
-            const angle = angleScale(targetValue);
-            const sinA  = Math.sin(angle);
-            const cosA  = Math.cos(angle);
+            const a = angleScale(targetValue);
+            const sinA = Math.sin(a), cosA = Math.cos(a);
             gaugeG.append("line")
                 .attr("x1", sinA * (rInner - 2)).attr("y1", -cosA * (rInner - 2))
                 .attr("x2", sinA * (radius + 2)).attr("y2", -cosA * (radius + 2))
@@ -473,52 +493,45 @@ export class Visual implements IVisual {
                 .attr("stroke-linecap", "round");
         }
 
-        // ── Base semicircular de la aguja ──────────────────────────────────────
-        const baseRadius = Math.max(6, Math.round(markerWidth * 0.5));
-        const baseArc    = d3.arc().innerRadius(0).outerRadius(baseRadius).cornerRadius(0);
+        // Base semicircular
+        const baseR   = Math.max(6, Math.round(markerWidth * 0.5));
+        const baseArc = d3.arc().innerRadius(0).outerRadius(baseR).cornerRadius(0);
         gaugeG.append("path")
-            .attr("d", baseArc({
-                startAngle: -Math.PI / 2, endAngle: Math.PI / 2,
-                innerRadius: 0, outerRadius: baseRadius
-            } as any))
+            .attr("d", baseArc({ startAngle: -Math.PI / 2, endAngle: Math.PI / 2, innerRadius: 0, outerRadius: baseR } as any))
             .attr("fill", "#444444");
 
-        // ── Aguja rotada ───────────────────────────────────────────────────────
-        const needleAngleDeg = angleScale(Math.max(minVal, Math.min(maxVal, value))) * (180 / Math.PI);
-        const needleLength   = (rInner + radius) / 2;
-        const needleW        = Math.max(3, Math.round(markerWidth * 0.18));
+        // Aguja
+        const needleDeg = angleScale(Math.max(minVal, Math.min(maxVal, value))) * (180 / Math.PI);
+        const needleLen = (rInner + radius) / 2;
+        const needleW   = Math.max(3, Math.round(markerWidth * 0.18));
 
         gaugeG.append("g")
-            .attr("transform", `rotate(${needleAngleDeg})`)
+            .attr("transform", `rotate(${needleDeg})`)
             .append("polygon")
-            .attr("points", `0,${-needleLength} ${-needleW},0 ${needleW},0`)
-            .attr("fill", markerColor)
-            .attr("opacity", 0.95);
+            .attr("points", `0,${-needleLen} ${-needleW},0 ${needleW},0`)
+            .attr("fill", markerColor).attr("opacity", 0.95);
 
-        // ── Pivot encima ───────────────────────────────────────────────────────
         gaugeG.append("circle")
             .attr("cx", 0).attr("cy", 0)
-            .attr("r", baseRadius * 0.6)
+            .attr("r", baseR * 0.6)
             .attr("fill", markerColor);
 
-        // ── Etiqueta del valor ─────────────────────────────────────────────────
+        // Etiqueta valor (dentro del arco, opcional)
         if (showLabel) {
-            const lblY      = Math.round((rInner + radius) / 2 * 0.5);
-            const labelText = `${value}${unit}`;
-            const textW     = labelText.length * Math.round((fontSize + 2) * scale) * 0.62 + 8;
-            const textH     = Math.round((fontSize + 4) * scale);
-
+            const lblY = Math.round((rInner + radius) / 2 * 0.5);
+            const lbl  = `${value}${unit}`;
+            const tw   = lbl.length * Math.round((fontSize + 2) * scale) * 0.62 + 8;
+            const th   = Math.round((fontSize + 4) * scale);
             gaugeG.append("rect")
-                .attr("x", -textW / 2).attr("y", lblY - textH * 0.85)
-                .attr("width", textW).attr("height", textH)
+                .attr("x", -tw / 2).attr("y", lblY - th * 0.85)
+                .attr("width", tw).attr("height", th)
                 .attr("fill", "rgba(255,255,255,0.85)").attr("rx", 3);
-
             gaugeG.append("text")
                 .attr("x", 0).attr("y", lblY)
                 .attr("text-anchor", "middle").attr("dominant-baseline", "auto")
                 .attr("font-size", `${Math.round((fontSize + 2) * scale)}px`)
                 .attr("font-weight", "600").attr("fill", fontColor)
-                .text(labelText);
+                .text(lbl);
         }
     }
 

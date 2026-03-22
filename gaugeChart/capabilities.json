@@ -1,49 +1,16 @@
 {
   "dataRoles": [
-    {
-      "displayName": "Valor Actual",
-      "name": "measure",
-      "kind": "Measure"
-    },
-    {
-      "displayName": "Mínimo",
-      "name": "min",
-      "kind": "Measure"
-    },
-    {
-      "displayName": "Máximo",
-      "name": "max",
-      "kind": "Measure"
-    },
-    {
-      "displayName": "Target (Meta)",
-      "name": "target",
-      "kind": "Measure"
-    },
-    {
-      "displayName": "Umbrales",
-      "name": "thresholds",
-      "kind": "Measure",
-      "description": "Arrastra una medida por umbral en el mismo orden que los segmentos"
-    },
-    {
-      "displayName": "Texto Formateado",
-      "name": "formatText",
-      "kind": "Measure",
-      "description": "Valor formateado que aparece grande en el panel izquierdo (ej: FORMAT([valor],\"0.0%\"))"
-    },
-    {
-      "displayName": "Zona Actual",
-      "name": "zoneLabel",
-      "kind": "Measure",
-      "description": "Campo DAX que devuelve el nombre de la zona donde cae el valor (ej: 'Objetivo', 'Apetito'...). Reemplaza el texto fijo debajo del valor formateado."
-    },
-    {
-      "displayName": "Etiquetas de Segmentos",
-      "name": "segmentLabels",
-      "kind": "Measure",
-      "description": "Arrastra una medida por segmento con el texto de la leyenda (ej: '35%', '33%'...). El visual agrega ≥ o < automáticamente."
-    }
+    { "displayName": "Valor Actual",      "name": "measure",    "kind": "Measure" },
+    { "displayName": "Mínimo",            "name": "min",        "kind": "Measure" },
+    { "displayName": "Máximo",            "name": "max",        "kind": "Measure" },
+    { "displayName": "Target (Meta)",     "name": "target",     "kind": "Measure" },
+    { "displayName": "Umbrales",          "name": "thresholds", "kind": "Measure" },
+    { "displayName": "Texto Formateado",  "name": "formatText", "kind": "Measure",
+      "description": "Valor que aparece grande debajo del gauge (ej: FORMAT([valor],\"0.0%\"))" },
+    { "displayName": "Zona Actual",       "name": "zoneLabel",  "kind": "Measure",
+      "description": "Campo DAX que devuelve el nombre de la zona (ej: 'Objetivo', 'Apetito'...)" },
+    { "displayName": "Etiquetas de Segmentos", "name": "segmentLabels", "kind": "Measure",
+      "description": "Una medida por segmento con el texto de la leyenda" }
   ],
 
   "dataViewMappings": [
@@ -144,21 +111,35 @@
     "barSettings": {
       "displayName": "Configuración de Barra",
       "properties": {
-        "height":             { "displayName": "Grosor del arco (px)",          "type": { "numeric": true } },
-        "borderRadius":       { "displayName": "Esquinas redondeadas (px)",     "type": { "numeric": true } },
-        "showThresholdTicks": { "displayName": "Mostrar marcas de los umbrales","type": { "bool":    true } },
-        "showLegend":         { "displayName": "Mostrar leyenda",               "type": { "bool":    true } }
+        "height":             { "displayName": "Alto de la barra (px)",          "type": { "numeric": true } },
+        "borderRadius":       { "displayName": "Esquinas redondeadas (px)",      "type": { "numeric": true } },
+        "showThresholdTicks": { "displayName": "Mostrar marcas de los umbrales", "type": { "bool":    true } },
+        "showLegend":         { "displayName": "Mostrar leyenda",                "type": { "bool":    true } },
+        "showLegendSigns":    { "displayName": "Mostrar signos (\u2265 / <)",    "type": { "bool":    true } }
       }
     },
 
     "labelSettings": {
       "displayName": "Etiquetas Generales",
       "properties": {
-        "fontSize":          { "displayName": "Tamaño de fuente",             "type": { "numeric": true } },
-        "fontColor":         { "displayName": "Color de fuente",              "type": { "fill": { "solid": { "color": true } } } },
-        "showIndicatorName": { "displayName": "Mostrar nombre del indicador", "type": { "bool":    true } },
-        "kpiValueFontSize":  { "displayName": "Tamaño valor formateado (px)", "type": { "numeric": true } },
-        "kpiLabelFontSize":  { "displayName": "Tamaño etiqueta zona (px)",    "type": { "numeric": true } }
+        "fontSize":          { "displayName": "Tamaño fuente general",        "type": { "numeric": true } },
+        "fontColor":         { "displayName": "Color fuente general",         "type": { "fill": { "solid": { "color": true } } } },
+        "showIndicatorName": { "displayName": "Mostrar nombre del indicador", "type": { "bool":    true } }
+      }
+    },
+
+    "kpiPanelSettings": {
+      "displayName": "Panel KPI (valor y zona)",
+      "properties": {
+        "valueFontSize":  { "displayName": "Tamaño valor (px)",             "type": { "numeric": true } },
+        "zoneFontSize":   { "displayName": "Tamaño zona/objetivo (px)",     "type": { "numeric": true } },
+        "legendFontSize": { "displayName": "Tamaño leyenda (px)",           "type": { "numeric": true } },
+        "valueColor":     { "displayName": "Color del valor",               "type": { "fill": { "solid": { "color": true } } } },
+        "zoneColor":      { "displayName": "Color de la zona/objetivo",     "type": { "fill": { "solid": { "color": true } } } },
+        "legendColor":    { "displayName": "Color de la leyenda",           "type": { "fill": { "solid": { "color": true } } } },
+        "fontFamily":     { "displayName": "Fuente (font-family)",          "type": { "text": true } },
+        "bold":           { "displayName": "Negrita",                       "type": { "bool": true } },
+        "italic":         { "displayName": "Cursiva",                       "type": { "bool": true } }
       }
     },
 

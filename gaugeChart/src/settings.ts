@@ -115,11 +115,10 @@ export class BarSettingsCard extends FormattingSettingsCard {
 }
 
 export class LabelSettingsCard extends FormattingSettingsCard {
-    fontSize          = new formattingSettings.NumUpDown({ name: "fontSize",          displayName: "Tamaño",                         value: 12  });
-    fontColor         = new formattingSettings.ColorPicker({ name: "fontColor",       displayName: "Color",                          value: { value: "#333333" } });
-    showIndicatorName = new formattingSettings.ToggleSwitch({ name: "showIndicatorName", displayName: "Mostrar nombre",              value: false });
+    fontSize          = new formattingSettings.NumUpDown({ name: "fontSize",          displayName: "Tamaño",   value: 12  });
+    fontColor         = new formattingSettings.ColorPicker({ name: "fontColor",       displayName: "Color",    value: { value: "#333333" } });
+    showIndicatorName = new formattingSettings.ToggleSwitch({ name: "showIndicatorName", displayName: "Mostrar nombre", value: false });
 
-    // ── NUEVAS: tamaños del panel KPI izquierdo ──────────────────────────────
     kpiValueFontSize  = new formattingSettings.NumUpDown({
         name: "kpiValueFontSize",
         displayName: "Tamaño valor formateado (px)",
@@ -138,7 +137,6 @@ export class LabelSettingsCard extends FormattingSettingsCard {
             maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 36 }
         }
     });
-    // ────────────────────────────────────────────────────────────────────────
 
     name = "labelSettings";
     displayName = "Etiquetas Generales";
@@ -154,50 +152,71 @@ export class LabelSettingsCard extends FormattingSettingsCard {
 export class SegmentColorsCard extends FormattingSettingsCard {
     numColors = new formattingSettings.NumUpDown({ 
         name: "numColors", 
-        displayName: "Cantidad de colores manuales", 
+        displayName: "Cantidad de segmentos a colorear",
+        description: "Pon aquí el número de segmentos del gauge para mostrar los pickers de color",
         value: 0, 
         options: { 
             minValue: { type: powerbi.visuals.ValidatorType.Min, value: 0  }, 
             maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 20 } 
         } 
     });
-    c1  = new formattingSettings.ColorPicker({ name: "c1",  displayName: "Color 1",  value: { value: "" } });
-    c2  = new formattingSettings.ColorPicker({ name: "c2",  displayName: "Color 2",  value: { value: "" } });
-    c3  = new formattingSettings.ColorPicker({ name: "c3",  displayName: "Color 3",  value: { value: "" } });
-    c4  = new formattingSettings.ColorPicker({ name: "c4",  displayName: "Color 4",  value: { value: "" } });
-    c5  = new formattingSettings.ColorPicker({ name: "c5",  displayName: "Color 5",  value: { value: "" } });
-    c6  = new formattingSettings.ColorPicker({ name: "c6",  displayName: "Color 6",  value: { value: "" } });
-    c7  = new formattingSettings.ColorPicker({ name: "c7",  displayName: "Color 7",  value: { value: "" } });
-    c8  = new formattingSettings.ColorPicker({ name: "c8",  displayName: "Color 8",  value: { value: "" } });
-    c9  = new formattingSettings.ColorPicker({ name: "c9",  displayName: "Color 9",  value: { value: "" } });
-    c10 = new formattingSettings.ColorPicker({ name: "c10", displayName: "Color 10", value: { value: "" } });
-    c11 = new formattingSettings.ColorPicker({ name: "c11", displayName: "Color 11", value: { value: "" } });
-    c12 = new formattingSettings.ColorPicker({ name: "c12", displayName: "Color 12", value: { value: "" } });
-    c13 = new formattingSettings.ColorPicker({ name: "c13", displayName: "Color 13", value: { value: "" } });
-    c14 = new formattingSettings.ColorPicker({ name: "c14", displayName: "Color 14", value: { value: "" } });
-    c15 = new formattingSettings.ColorPicker({ name: "c15", displayName: "Color 15", value: { value: "" } });
-    c16 = new formattingSettings.ColorPicker({ name: "c16", displayName: "Color 16", value: { value: "" } });
-    c17 = new formattingSettings.ColorPicker({ name: "c17", displayName: "Color 17", value: { value: "" } });
-    c18 = new formattingSettings.ColorPicker({ name: "c18", displayName: "Color 18", value: { value: "" } });
-    c19 = new formattingSettings.ColorPicker({ name: "c19", displayName: "Color 19", value: { value: "" } });
-    c20 = new formattingSettings.ColorPicker({ name: "c20", displayName: "Color 20", value: { value: "" } });
+    c1  = new formattingSettings.ColorPicker({ name: "c1",  displayName: "Color Segmento 1",  value: { value: "" } });
+    c2  = new formattingSettings.ColorPicker({ name: "c2",  displayName: "Color Segmento 2",  value: { value: "" } });
+    c3  = new formattingSettings.ColorPicker({ name: "c3",  displayName: "Color Segmento 3",  value: { value: "" } });
+    c4  = new formattingSettings.ColorPicker({ name: "c4",  displayName: "Color Segmento 4",  value: { value: "" } });
+    c5  = new formattingSettings.ColorPicker({ name: "c5",  displayName: "Color Segmento 5",  value: { value: "" } });
+    c6  = new formattingSettings.ColorPicker({ name: "c6",  displayName: "Color Segmento 6",  value: { value: "" } });
+    c7  = new formattingSettings.ColorPicker({ name: "c7",  displayName: "Color Segmento 7",  value: { value: "" } });
+    c8  = new formattingSettings.ColorPicker({ name: "c8",  displayName: "Color Segmento 8",  value: { value: "" } });
+    c9  = new formattingSettings.ColorPicker({ name: "c9",  displayName: "Color Segmento 9",  value: { value: "" } });
+    c10 = new formattingSettings.ColorPicker({ name: "c10", displayName: "Color Segmento 10", value: { value: "" } });
+    c11 = new formattingSettings.ColorPicker({ name: "c11", displayName: "Color Segmento 11", value: { value: "" } });
+    c12 = new formattingSettings.ColorPicker({ name: "c12", displayName: "Color Segmento 12", value: { value: "" } });
+    c13 = new formattingSettings.ColorPicker({ name: "c13", displayName: "Color Segmento 13", value: { value: "" } });
+    c14 = new formattingSettings.ColorPicker({ name: "c14", displayName: "Color Segmento 14", value: { value: "" } });
+    c15 = new formattingSettings.ColorPicker({ name: "c15", displayName: "Color Segmento 15", value: { value: "" } });
+    c16 = new formattingSettings.ColorPicker({ name: "c16", displayName: "Color Segmento 16", value: { value: "" } });
+    c17 = new formattingSettings.ColorPicker({ name: "c17", displayName: "Color Segmento 17", value: { value: "" } });
+    c18 = new formattingSettings.ColorPicker({ name: "c18", displayName: "Color Segmento 18", value: { value: "" } });
+    c19 = new formattingSettings.ColorPicker({ name: "c19", displayName: "Color Segmento 19", value: { value: "" } });
+    c20 = new formattingSettings.ColorPicker({ name: "c20", displayName: "Color Segmento 20", value: { value: "" } });
 
     name = "segmentColorsSettings";
     displayName = "Sobrescribir Colores de Segmentos";
     slices = [this.numColors, this.c1, this.c2, this.c3, this.c4, this.c5, this.c6, this.c7, this.c8, this.c9, this.c10, this.c11, this.c12, this.c13, this.c14, this.c15, this.c16, this.c17, this.c18, this.c19, this.c20];
 
-    public updateVisibleSlices() {
+    public updateVisibleSlices(numSegments?: number) {
+        // Si se pasa numSegments, actualizar numColors automáticamente
+        if (numSegments !== undefined) {
+            this.numColors.value = numSegments;
+        }
         const count = Math.max(0, Math.min(20, this.numColors.value ?? 0));
         const allColors = [this.c1, this.c2, this.c3, this.c4, this.c5, this.c6, this.c7, this.c8, this.c9, this.c10, this.c11, this.c12, this.c13, this.c14, this.c15, this.c16, this.c17, this.c18, this.c19, this.c20];
         this.slices = [this.numColors, ...allColors.slice(0, count)];
     }
 
+    // ── FIX: lee TODOS los pickers que tengan valor, sin depender de numColors ─
+    // Si numColors = 0 pero el usuario tiene c1..c6 con colores guardados,
+    // los devuelve igual. Así el panel de colores siempre tiene efecto.
     public getActiveColors(): (string | null)[] {
-        const count = Math.max(0, Math.min(20, this.numColors.value ?? 0));
-        const allColors = [this.c1, this.c2, this.c3, this.c4, this.c5, this.c6, this.c7, this.c8, this.c9, this.c10, this.c11, this.c12, this.c13, this.c14, this.c15, this.c16, this.c17, this.c18, this.c19, this.c20];
+        const allColors = [
+            this.c1, this.c2, this.c3, this.c4, this.c5,
+            this.c6, this.c7, this.c8, this.c9, this.c10,
+            this.c11, this.c12, this.c13, this.c14, this.c15,
+            this.c16, this.c17, this.c18, this.c19, this.c20
+        ];
+        // Buscar el último índice que tenga color definido
+        let lastFilled = -1;
+        allColors.forEach((c, i) => {
+            if (c.value && c.value.value && c.value.value.trim() !== "") lastFilled = i;
+        });
+
+        if (lastFilled === -1) return []; // ningún color definido → usar automático
+
+        // Devolver hasta el último definido (incluye posibles huecos como null)
         return allColors
-            .slice(0, count)
-            .map(c => (c.value && c.value.value) ? c.value.value : null);
+            .slice(0, lastFilled + 1)
+            .map(c => (c.value && c.value.value && c.value.value.trim() !== "") ? c.value.value : null);
     }
 }
 
