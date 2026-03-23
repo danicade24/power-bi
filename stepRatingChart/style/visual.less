@@ -1,0 +1,84 @@
+.rating-chart-svg {
+    display: block;
+    user-select: none;
+
+    // ── Líneas de la serie (cada agencia) ─────────────────────────────────────
+    .series-line {
+        fill: none;
+        transition: opacity 0.2s, stroke-width 0.2s;
+
+        &:hover {
+            opacity: 0.85;
+            stroke-width: 3px;
+        }
+    }
+
+    // ── Puntos de cada cambio de rating ───────────────────────────────────────
+    .series-dot {
+        transition: r 0.15s, opacity 0.2s;
+        cursor: pointer;
+
+        &:hover {
+            opacity: 0.9;
+        }
+    }
+
+    // ── Etiquetas del eje Y (niveles: AAA, AA+...) ────────────────────────────
+    .y-level-label {
+        font-family: 'Segoe UI', sans-serif;
+        dominant-baseline: middle;
+        text-anchor: end;
+    }
+
+    // ── Etiquetas de grupo (Calidad superior, Calidad buena...) ──────────────
+    .group-label {
+        font-family: 'Segoe UI', sans-serif;
+        dominant-baseline: middle;
+        text-anchor: start;
+    }
+
+    // ── Línea de llave del grupo (brace izquierda) ────────────────────────────
+    .group-brace {
+        stroke-width: 1px;
+    }
+
+    // ── Línea de separación entre grupos ──────────────────────────────────────
+    .group-separator {
+        stroke-width: 0.75px;
+    }
+
+    // ── Líneas punteadas horizontales por nivel ───────────────────────────────
+    .dotted-line {
+        stroke-width: 0.5px;
+        stroke-dasharray: 3, 3;
+    }
+
+    // ── Eje X ─────────────────────────────────────────────────────────────────
+    .x-axis {
+        .tick text {
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        .domain,
+        .tick line {
+            display: none;
+        }
+    }
+
+    // ── Leyenda ───────────────────────────────────────────────────────────────
+    .legend-item {
+        cursor: default;
+
+        text {
+            font-family: 'Segoe UI', sans-serif;
+            dominant-baseline: middle;
+        }
+    }
+
+    // ── Estado vacío ──────────────────────────────────────────────────────────
+    .empty-message {
+        font-family: 'Segoe UI', sans-serif;
+        dominant-baseline: middle;
+        text-anchor: middle;
+    }
+}
