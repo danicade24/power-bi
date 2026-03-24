@@ -190,7 +190,6 @@ export class Visual implements IVisual {
         // ── Sin signos ────────────────────────────────────────────────────────
         if (!showSigns) {
             if (labelFromData) return labelFromData;
-            if (totalSegs === 1) return `${fmt(seg.start)} \u2013 ${fmt(seg.end)}${unit}`;
             return `${fmt(seg.start)} \u2013 ${fmt(seg.end)}${unit}`;
         }
 
@@ -198,36 +197,27 @@ export class Visual implements IVisual {
         if (labelFromData) {
             if (totalSegs === 1) return labelFromData;
             if (ascending) {
-                // ascending: todos ≤ excepto el último que es >
                 return segIndex === totalSegs - 1
                     ? `> ${labelFromData}`
                     : `\u2264 ${labelFromData}`;
             } else {
-                // descending: todos ≥ excepto el último que es <
-                return segIndex === totalSegs - 1
+                return segIndex === 0
                     ? `< ${labelFromData}`
                     : `\u2265 ${labelFromData}`;
             }
         }
 
         // ── Fallback numérico ─────────────────────────────────────────────────
-        // ascending=true:  ≤ seg.end, ≤ seg.end, ..., > seg.start  (último es el peor)
-        // ascending=false: ≥ seg.start, ≥ seg.start, ..., < seg.end (último es el peor)
         if (totalSegs === 1) return `${fmt(seg.start)} \u2013 ${fmt(seg.end)}${unit}`;
-
-        // SIEMPRE usar el mismo valor base (como ascendente)
-        const baseValue = segIndex === totalSegs - 1
-            ? seg.start   // último segmento
-            : seg.end;    // resto
 
         if (ascending) {
             return segIndex === totalSegs - 1
-                ? `> ${fmt(baseValue)}${unit}`
-                : `≤ ${fmt(baseValue)}${unit}`;
+                ? `> ${fmt(seg.start)}${unit}`
+                : `\u2264 ${fmt(seg.end)}${unit}`;
         } else {
             return segIndex === 0
-                ? `< ${fmt(baseValue)}${unit}`
-                : `≥ ${fmt(baseValue)}${unit}`;
+                ? `< ${fmt(seg.end)}${unit}`
+                : `\u2265 ${fmt(seg.start)}${unit}`;
         }
     }
 
@@ -325,6 +315,7 @@ export class Visual implements IVisual {
             const cur = allColorSlices[i].value?.value;
             if (!cur || cur.trim() === "") allColorSlices[i].value = { value: seg.color };
         });
+
 
         const overrideValue = s.marker.overrideValue.value;
         const finalValue = (overrideValue != null && overrideValue !== ("" as any))
@@ -435,15 +426,11 @@ export class Visual implements IVisual {
                 .attr("transform", `translate(${legendX}, ${cy - (segments.length * (legendFs + 5)) / 2})`);
             let legY = 0;
 
-            const segmentsToUse = ascending ? segments : [...segments].reverse();
+            const segmentsToUse = segments;
             segmentsToUse.forEach((seg, i) => {
-                const logicalIndex = ascending
-                    ? i
-                    : segments.length - 1 - i;
-
                 const labelStr = this.buildLegendLabel(
                     seg,
-                    logicalIndex,
+                    i,
                     segments.length,
                     indicator.segmentLabels,
                     ascending,
