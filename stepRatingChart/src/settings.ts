@@ -72,12 +72,12 @@ export class RatingGroupsCard extends FormattingSettingsCard {
 // ── Series ────────────────────────────────────────────────────────────────────
 export class SeriesSettingsCard extends FormattingSettingsCard {
     lineWidth  = new formattingSettings.NumUpDown({
-        name: "lineWidth", displayName: "Grosor de línea (px)", value: 2,
+        name: "lineWidth", displayName: "Grosor de línea (px)", value: 3,
         options: { minValue: { type: powerbi.visuals.ValidatorType.Min, value: 1 } }
     });
-    showDots   = new formattingSettings.ToggleSwitch({ name: "showDots",   displayName: "Mostrar puntos",       value: true });
+    showDots   = new formattingSettings.ToggleSwitch({ name: "showDots",   displayName: "Mostrar puntos (vértices)",       value: true });
     dotRadius  = new formattingSettings.NumUpDown({
-        name: "dotRadius", displayName: "Radio de puntos (px)", value: 3,
+        name: "dotRadius", displayName: "Radio de nodos", value: 4,
         options: { minValue: { type: powerbi.visuals.ValidatorType.Min, value: 1 } }
     });
     showLegend = new formattingSettings.ToggleSwitch({ name: "showLegend", displayName: "Mostrar leyenda",      value: true });
@@ -95,6 +95,24 @@ export class SeriesSettingsCard extends FormattingSettingsCard {
     name        = "seriesSettings";
     displayName = "Series";
     slices      = [this.lineWidth, this.showDots, this.dotRadius, this.showLegend, this.legendPosition];
+}
+
+// ── Colores de Serie Dinámicos ────────────────────────────────────────────────
+export class SeriesColorsCard extends FormattingSettingsCard {
+    color1  = new formattingSettings.ColorPicker({ name: "color1",  displayName: "Agencia 1",  value: { value: "" } });
+    color2  = new formattingSettings.ColorPicker({ name: "color2",  displayName: "Agencia 2",  value: { value: "" } });
+    color3  = new formattingSettings.ColorPicker({ name: "color3",  displayName: "Agencia 3",  value: { value: "" } });
+    color4  = new formattingSettings.ColorPicker({ name: "color4",  displayName: "Agencia 4",  value: { value: "" } });
+    color5  = new formattingSettings.ColorPicker({ name: "color5",  displayName: "Agencia 5",  value: { value: "" } });
+    color6  = new formattingSettings.ColorPicker({ name: "color6",  displayName: "Agencia 6",  value: { value: "" } });
+    color7  = new formattingSettings.ColorPicker({ name: "color7",  displayName: "Agencia 7",  value: { value: "" } });
+    color8  = new formattingSettings.ColorPicker({ name: "color8",  displayName: "Agencia 8",  value: { value: "" } });
+    color9  = new formattingSettings.ColorPicker({ name: "color9",  displayName: "Agencia 9",  value: { value: "" } });
+    color10 = new formattingSettings.ColorPicker({ name: "color10", displayName: "Agencia 10", value: { value: "" } });
+
+    name        = "seriesColors";
+    displayName = "Colores de Agencias";
+    slices      = [this.color1, this.color2, this.color3, this.color4, this.color5, this.color6, this.color7, this.color8, this.color9, this.color10];
 }
 
 // ── Eje X ─────────────────────────────────────────────────────────────────────
@@ -124,14 +142,15 @@ export class AxisSettingsCard extends FormattingSettingsCard {
 // ── Eje Y ─────────────────────────────────────────────────────────────────────
 export class YAxisSettingsCard extends FormattingSettingsCard {
     fontSize       = new formattingSettings.NumUpDown({ name: "fontSize",       displayName: "Tamaño fuente niveles", value: 10 });
-    fontColor      = new formattingSettings.ColorPicker({ name: "fontColor",    displayName: "Color fuente niveles",  value: { value: "#333333" } });
+    fontColor      = new formattingSettings.ColorPicker({ name: "fontColor",    displayName: "Color fuente principal",  value: { value: "#000000" } });
+    secondaryFontColor = new formattingSettings.ColorPicker({ name: "secondaryFontColor", displayName: "Color fuente (paréntesis)", value: { value: "#005bb5" } });
     groupFontSize  = new formattingSettings.NumUpDown({ name: "groupFontSize",  displayName: "Tamaño fuente grupos",  value: 10 });
     groupFontColor = new formattingSettings.ColorPicker({ name: "groupFontColor", displayName: "Color fuente grupos", value: { value: "#888888" } });
     showDottedLines = new formattingSettings.ToggleSwitch({ name: "showDottedLines", displayName: "Líneas punteadas por nivel", value: true });
 
     name        = "yAxisSettings";
     displayName = "Eje Y";
-    slices      = [this.fontSize, this.fontColor, this.groupFontSize, this.groupFontColor, this.showDottedLines];
+    slices      = [this.fontSize, this.fontColor, this.secondaryFontColor, this.groupFontSize, this.groupFontColor, this.showDottedLines];
 }
 
 // ── Modelo principal ──────────────────────────────────────────────────────────
@@ -139,8 +158,9 @@ export class VisualSettings extends FormattingSettingsModel {
     ratingLevels = new RatingLevelsCard();
     ratingGroups = new RatingGroupsCard();
     series       = new SeriesSettingsCard();
+    seriesColors = new SeriesColorsCard();
     xAxis        = new AxisSettingsCard();
     yAxis        = new YAxisSettingsCard();
 
-    cards = [this.ratingLevels, this.ratingGroups, this.series, this.xAxis, this.yAxis];
+    cards = [this.ratingLevels, this.ratingGroups, this.series, this.seriesColors, this.xAxis, this.yAxis];
 }

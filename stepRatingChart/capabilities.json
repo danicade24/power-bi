@@ -77,8 +77,8 @@
       "displayName": "Series",
       "properties": {
         "lineWidth":  { "displayName": "Grosor de línea (px)", "type": { "numeric": true } },
-        "showDots":   { "displayName": "Mostrar puntos",       "type": { "bool":    true } },
-        "dotRadius":  { "displayName": "Radio de puntos (px)", "type": { "numeric": true } },
+        "showDots":   { "displayName": "Mostrar puntos (vértices)", "type": { "bool": true } },
+        "dotRadius":  { "displayName": "Radio de nodos", "type": { "numeric": true } },
         "showLegend": { "displayName": "Mostrar leyenda",      "type": { "bool":    true } },
         "legendPosition": {
           "displayName": "Posición de leyenda",
@@ -90,6 +90,22 @@
             ]
           }
         }
+      }
+    },
+
+    "seriesColors": {
+      "displayName": "Colores de Agencias",
+      "properties": {
+        "color1": { "displayName": "Agencia 1", "type": { "fill": { "solid": { "color": true } } } },
+        "color2": { "displayName": "Agencia 2", "type": { "fill": { "solid": { "color": true } } } },
+        "color3": { "displayName": "Agencia 3", "type": { "fill": { "solid": { "color": true } } } },
+        "color4": { "displayName": "Agencia 4", "type": { "fill": { "solid": { "color": true } } } },
+        "color5": { "displayName": "Agencia 5", "type": { "fill": { "solid": { "color": true } } } },
+        "color6": { "displayName": "Agencia 6", "type": { "fill": { "solid": { "color": true } } } },
+        "color7": { "displayName": "Agencia 7", "type": { "fill": { "solid": { "color": true } } } },
+        "color8": { "displayName": "Agencia 8", "type": { "fill": { "solid": { "color": true } } } },
+        "color9": { "displayName": "Agencia 9", "type": { "fill": { "solid": { "color": true } } } },
+        "color10": { "displayName": "Agencia 10", "type": { "fill": { "solid": { "color": true } } } }
       }
     },
 
@@ -116,7 +132,8 @@
       "displayName": "Eje Y",
       "properties": {
         "fontSize":        { "displayName": "Tamaño fuente niveles", "type": { "numeric": true } },
-        "fontColor":       { "displayName": "Color fuente niveles",  "type": { "fill": { "solid": { "color": true } } } },
+        "fontColor":       { "displayName": "Color fuente principal",  "type": { "fill": { "solid": { "color": true } } } },
+        "secondaryFontColor": { "displayName": "Color fuente (paréntesis)", "type": { "fill": { "solid": { "color": true } } } },
         "groupFontSize":   { "displayName": "Tamaño fuente grupos",  "type": { "numeric": true } },
         "groupFontColor":  { "displayName": "Color fuente grupos",   "type": { "fill": { "solid": { "color": true } } } },
         "showDottedLines": { "displayName": "Líneas punteadas por nivel", "type": { "bool": true } }

@@ -183,11 +183,44 @@ export class Visual implements IVisual {
             map.get(p.agency)!.push(p);
         });
 
-        let colorIdx = 0;
+        const colorProps = [
+            this.settings.seriesColors.color1,
+            this.settings.seriesColors.color2,
+            this.settings.seriesColors.color3,
+            this.settings.seriesColors.color4,
+            this.settings.seriesColors.color5,
+            this.settings.seriesColors.color6,
+            this.settings.seriesColors.color7,
+            this.settings.seriesColors.color8,
+            this.settings.seriesColors.color9,
+            this.settings.seriesColors.color10
+        ];
+
+        const uniqueAgencies = Array.from(map.keys()).sort();
+        const agencyColors = new Map<string, string>();
+        
+        uniqueAgencies.forEach((agency, i) => {
+            if (i < 10) {
+                const prop = colorProps[i];
+                prop.displayName = agency;
+                prop.visible = true;
+                if (!prop.value.value) {
+                    prop.value.value = SERIES_COLORS[i % SERIES_COLORS.length];
+                }
+                agencyColors.set(agency, prop.value.value as string);
+            } else {
+                agencyColors.set(agency, SERIES_COLORS[i % SERIES_COLORS.length]);
+            }
+        });
+
+        for (let i = uniqueAgencies.length; i < 10; i++) {
+            colorProps[i].visible = false;
+        }
+
         const series: AgencySeries[] = [];
         map.forEach((pts, name) => {
             pts.sort((a, b) => a.date.getTime() - b.date.getTime());
-            series.push({ name, points: pts, color: SERIES_COLORS[colorIdx++ % SERIES_COLORS.length] });
+            series.push({ name, points: pts, color: agencyColors.get(name)! });
         });
         return series;
     }
@@ -206,8 +239,8 @@ export class Visual implements IVisual {
         const s = this.settings;
 
         const showDots      = s.series.showDots.value         as boolean;
-        const dotR          = (s.series.dotRadius.value       as number) ?? 3;
-        const lineW         = (s.series.lineWidth.value       as number) ?? 2;
+        const dotR          = (s.series.dotRadius.value       as number) ?? 4;
+        const lineW         = (s.series.lineWidth.value       as number) ?? 3;
         const showLeg       = s.series.showLegend.value       as boolean;
         const legPos        = (s.series.legendPosition.value  as any)?.value ?? "bottom";
         const dateFmt       = (s.xAxis.dateFormat.value       as any)?.value ?? "dd/mm/yyyy";
@@ -215,7 +248,8 @@ export class Visual implements IVisual {
         const xFs           = (s.xAxis.fontSize.value         as number) ?? 10;
         const xFc           = (s.xAxis.fontColor.value        as any)?.value ?? "#555555";
         const yFs           = (s.yAxis.fontSize.value         as number) ?? 10;
-        const yFc           = (s.yAxis.fontColor.value        as any)?.value ?? "#333333";
+        const yFc           = (s.yAxis.fontColor.value        as any)?.value ?? "#000000";
+        const yFcSec        = (s.yAxis.secondaryFontColor.value as any)?.value ?? "#005bb5";
         const gFs           = (s.yAxis.groupFontSize.value    as number) ?? 10;
         const gFc           = (s.yAxis.groupFontColor.value   as any)?.value ?? "#888888";
         const showDotted    = s.yAxis.showDottedLines.value   as boolean;
@@ -237,15 +271,26 @@ export class Visual implements IVisual {
             .sort((a, b) => a.num - b.num);
 
         // Márgenes
-        const legendHeight = (showLeg && legPos === "bottom") ? 28 : 0;
-        const legendWidth  = (showLeg && legPos === "right")  ? 110 : 0;
+        const legH = showLeg ? 28 : 0;
+        const legW = (showLeg && legPos === "right") ? 110 : 0;
         const groupLabelW  = showGLabels ? 85 : 0;
         const yLabelW      = 95;
 
+        let mTop = 16;
+        let mBot = 24 + (xFs * 3.5); // Air for rotated text
+        
+        if (showLeg) {
+            if (legPos === "top") {
+                mTop += legH;
+            } else if (legPos === "bottom") {
+                mBot += legH;
+            }
+        }
+
         const margin = {
-            top:    16,
-            right:  20 + legendWidth,
-            bottom: 40 + legendHeight,
+            top:    mTop,
+            right:  20 + legW,
+            bottom: mBot,
             left:   yLabelW + groupLabelW
         };
 
@@ -272,9 +317,9 @@ export class Visual implements IVisual {
                     .classed("dotted-line", true)
                     .attr("x1", 0).attr("y1", yScale(num))
                     .attr("x2", W).attr("y2", yScale(num))
-                    .attr("stroke", "#dddddd")
-                    .attr("stroke-width", 0.5)
-                    .attr("stroke-dasharray", "3,3");
+                    .attr("stroke", "#e8e8e8")
+                    .attr("stroke-width", 1)
+                    .attr("stroke-dasharray", "2,4");
             });
         }
 
@@ -322,15 +367,26 @@ export class Visual implements IVisual {
 
         // Etiquetas eje Y
         visibleLevels.forEach(({ num, label }) => {
-            g.append("text")
+            const parts = label.split(" (");
+            const labelEl = g.append("text")
                 .classed("y-level-label", true)
                 .attr("x", -4)
                 .attr("y", yScale(num))
                 .attr("text-anchor", "end")
                 .attr("dominant-baseline", "middle")
-                .attr("font-size", `${yFs}px`)
+                .attr("font-size", `${yFs}px`);
+
+            labelEl.append("tspan")
+                .attr("font-weight", "bold")
                 .attr("fill", yFc)
-                .text(label);
+                .text(parts[0]);
+
+            if (parts.length > 1) {
+                labelEl.append("tspan")
+                    .attr("font-weight", "normal")
+                    .attr("fill", yFcSec)
+                    .text(" (" + parts[1]);
+            }
         });
 
         // Eje X
@@ -348,8 +404,10 @@ export class Visual implements IVisual {
         xAxisG.selectAll(".tick text")
             .attr("font-size", `${xFs}px`)
             .attr("fill", xFc)
-            .attr("transform", "rotate(-35)")
-            .attr("text-anchor", "end");
+            .attr("text-anchor", "end")
+            .attr("dx", "-0.8em")
+            .attr("dy", "0.15em")
+            .attr("transform", "rotate(-45)");
 
         // Series
         series.forEach(serie => {
@@ -416,13 +474,13 @@ export class Visual implements IVisual {
 
             if (legPos === "bottom") {
                 drawLeg(this.mainG.append("g")
-                    .attr("transform", `translate(${margin.left}, ${margin.top + H + margin.bottom - legendHeight + 4})`), false);
+                    .attr("transform", `translate(${margin.left}, ${viewHeight - legH + 4})`), false);
             } else if (legPos === "top") {
                 drawLeg(this.mainG.append("g")
                     .attr("transform", `translate(${margin.left}, 4)`), false);
             } else {
                 drawLeg(this.mainG.append("g")
-                    .attr("transform", `translate(${viewWidth - legendWidth + 4}, ${margin.top})`), true);
+                    .attr("transform", `translate(${viewWidth - legW + 4}, ${margin.top})`), true);
             }
         }
     }

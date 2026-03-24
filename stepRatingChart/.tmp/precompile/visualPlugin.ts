@@ -1,0 +1,32 @@
+import { Visual } from "../../src/visual";
+import powerbiVisualsApi from "powerbi-visuals-api";
+import IVisualPlugin = powerbiVisualsApi.visuals.plugins.IVisualPlugin;
+import VisualConstructorOptions = powerbiVisualsApi.extensibility.visual.VisualConstructorOptions;
+import DialogConstructorOptions = powerbiVisualsApi.extensibility.visual.DialogConstructorOptions;
+var powerbiKey: any = "powerbi";
+var powerbi: any = window[powerbiKey];
+var stepRatingChartC50B8E1D3F284B94B5E5F2A9C0E1D2F3: IVisualPlugin = {
+    name: 'stepRatingChartC50B8E1D3F284B94B5E5F2A9C0E1D2F3',
+    displayName: 'Step Rating Chart',
+    class: 'Visual',
+    apiVersion: '5.3.0',
+    create: (options?: VisualConstructorOptions) => {
+        if (Visual) {
+            return new Visual(options);
+        }
+        throw 'Visual instance not found';
+    },
+    createModalDialog: (dialogId: string, options: DialogConstructorOptions, initialState: object) => {
+        const dialogRegistry = (<any>globalThis).dialogRegistry;
+        if (dialogId in dialogRegistry) {
+            new dialogRegistry[dialogId](options, initialState);
+        }
+    },
+    custom: true
+};
+if (typeof powerbi !== "undefined") {
+    powerbi.visuals = powerbi.visuals || {};
+    powerbi.visuals.plugins = powerbi.visuals.plugins || {};
+    powerbi.visuals.plugins["stepRatingChartC50B8E1D3F284B94B5E5F2A9C0E1D2F3"] = stepRatingChartC50B8E1D3F284B94B5E5F2A9C0E1D2F3;
+}
+export default stepRatingChartC50B8E1D3F284B94B5E5F2A9C0E1D2F3;

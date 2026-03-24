@@ -5,7 +5,7 @@
     "experimentalDecorators": true,
     "target": "ESNext",
     "sourceMap": true,
-    "outDir": "./dist",
+    "outDir": "./.tmp/build/",
     "module": "ESNext",
     "moduleResolution": "node",
     "lib": ["es2022", "dom"],
