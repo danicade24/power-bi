@@ -330,15 +330,19 @@ export class Visual implements IVisual {
         const fmtDisplay = hasFormatText ? String(rawFmt) : "";
 
         // ── Layout ─────────────────────────────────────────────────────────────
-        // El panel KPI va DEBAJO del gauge — reservamos espacio inferior
-        const kpiBlockHeight = (hasFormatText ? valueFs + 6 : 0) + zoneFs + 10;
-        const legendWidth = showLegend ? Math.max(80, legendFs * 9) : 0;
-
-        const gaugeAreaWidth = Math.max(60, viewWidth - legendWidth - 8);
-        // Altura disponible para el gauge = viewport - bloque KPI inferior
-        const gaugeAreaHeight = Math.max(60, viewHeight - kpiBlockHeight - 10);
-
         const scale = Math.max(0.5, Math.min(2.5, viewWidth / 400));
+        
+        // Consistencia de Escala: Aplicamos el ratio a las fuentes
+        const scValueFs = Math.max(10, Math.round(valueFs * scale));
+        const scZoneFs  = Math.max(9, Math.round(zoneFs * scale));
+        const scLegendFs = Math.max(9, Math.round(legendFs * scale));
+
+        const legendWidth = showLegend ? Math.max(80, scLegendFs * 9) : 0;
+        const gaugeAreaWidth = Math.max(60, viewWidth - legendWidth - 8);
+        
+        // Aprovechar espacio: El KPI ahora va "DENTRO" del arco, no restamos al container
+        const gaugeAreaHeight = Math.max(60, viewHeight - 10);
+
         const radius = Math.max(20, Math.min(gaugeAreaWidth / 2, gaugeAreaHeight / 1.55) - 2);
         const rInner = radius * 0.60;
         const pad = 8;
@@ -374,44 +378,42 @@ export class Visual implements IVisual {
             scale
         );
 
-        // ── Panel KPI DEBAJO del gauge ─────────────────────────────────────────
-        // Posición Y: justo debajo del punto más bajo del arco
-        const kpiBaseY = cy + radius * 0.58 + pad + 4;
+        // ── Panel KPI DENTRO del arco ─────────────────────────────────────────
+        // Posicionamiento dinámico debajo de la aguja aprovechando el espacio vacío
+        const baseR = Math.max(6, Math.round(markerWidth * 0.5)); 
+        const kpiBaseY = cy + baseR + (radius * 0.08);
 
         if (hasFormatText) {
-            // Valor formateado grande
             mainG.append("text")
                 .attr("x", cx)
-                .attr("y", kpiBaseY + valueFs)
+                .attr("y", kpiBaseY)
                 .attr("text-anchor", "middle")
-                .attr("dominant-baseline", "auto")
-                .attr("font-size", `${valueFs}px`)
+                .attr("dominant-baseline", "hanging")
+                .attr("font-size", `${scValueFs}px`)
                 .attr("font-weight", kpiFontWeight)
                 .attr("font-style", kpiFontStyle)
                 .attr("font-family", kpiFontFamily)
                 .attr("fill", valueColor)
                 .text(fmtDisplay);
 
-            // Zona / objetivo debajo del valor
             mainG.append("text")
                 .attr("x", cx)
-                .attr("y", kpiBaseY + valueFs + zoneFs + 4)
+                .attr("y", kpiBaseY + scValueFs + (radius * 0.05))
                 .attr("text-anchor", "middle")
-                .attr("dominant-baseline", "auto")
-                .attr("font-size", `${zoneFs}px`)
+                .attr("dominant-baseline", "hanging")
+                .attr("font-size", `${scZoneFs}px`)
                 .attr("font-weight", kpiFontWeight)
                 .attr("font-style", kpiFontStyle)
                 .attr("font-family", kpiFontFamily)
                 .attr("fill", zoneColor)
                 .text(zoneLabelDisplay);
         } else {
-            // Solo zona si no hay formatText
             mainG.append("text")
                 .attr("x", cx)
-                .attr("y", kpiBaseY + zoneFs)
+                .attr("y", kpiBaseY)
                 .attr("text-anchor", "middle")
-                .attr("dominant-baseline", "auto")
-                .attr("font-size", `${zoneFs}px`)
+                .attr("dominant-baseline", "hanging")
+                .attr("font-size", `${scZoneFs}px`)
                 .attr("font-weight", kpiFontWeight)
                 .attr("font-style", kpiFontStyle)
                 .attr("font-family", kpiFontFamily)
@@ -421,14 +423,25 @@ export class Visual implements IVisual {
 
         // ── Leyenda derecha ────────────────────────────────────────────────────
         if (showLegend) {
+
             const legendX = gaugeAreaWidth + 8;
+            const rectHeight = scLegendFs + 10;
+            const rectWidth = Math.max(10, Math.round(12 * scale));
+            const totalLegendHeight = segments.length * rectHeight;
+
+            // Bounding box vertical del tacómetro: cy - radius (tope) hasta cy + radius*0.5 (base)
+            const arcCenterY = cy - radius * 0.25;
+
             const legendG = mainG.append("g")
-                .attr("transform", `translate(${legendX}, ${cy - (segments.length * (legendFs + 5)) / 2})`);
+                .attr("transform", `translate(${legendX}, ${arcCenterY - totalLegendHeight / 2})`);
+
             let legY = 0;
 
             const segmentsToUse = segments;
             segmentsToUse.forEach((seg, i) => {
+
                 const labelStr = this.buildLegendLabel(
+
                     seg,
                     i,
                     segments.length,
@@ -438,28 +451,35 @@ export class Visual implements IVisual {
                     showLegendSigns
                 );
 
-                // Cuadrado de color (más visible que círculo para la leyenda)
+                // Rectángulo contiguo sin bordes redondeados ni espacio extra
+
                 legendG.append("rect")
-                    .attr("x", 0).attr("y", legY - legendFs * 0.8)
-                    .attr("width", legendFs).attr("height", legendFs)
-                    .attr("rx", 2)
+                    .attr("x", 0)
+                    .attr("y", legY)
+                    .attr("width", rectWidth)
+                    .attr("height", rectHeight)
                     .attr("fill", seg.color);
 
+                // Texto centrado verticalmente respecto al rectángulo
+
                 legendG.append("text")
-                    .attr("x", legendFs + 5).attr("y", legY)
-                    .attr("font-size", `${legendFs}px`)
+                    .attr("x", rectWidth + 8)
+                    .attr("y", legY + rectHeight / 2)
+                    .attr("dominant-baseline", "middle")
+                    .attr("font-size", `${scLegendFs}px`)
                     .attr("font-weight", kpiFontWeight)
                     .attr("font-style", kpiFontStyle)
                     .attr("font-family", kpiFontFamily)
                     .attr("fill", legendColor)
                     .text(labelStr);
+                legY += rectHeight;
 
-                legY += legendFs + 5;
             });
+
         }
 
         // ── Altura SVG ajustada ────────────────────────────────────────────────
-        const totalHeight = kpiBaseY + (hasFormatText ? valueFs + zoneFs + 10 : zoneFs + 10);
+        const totalHeight = kpiBaseY + (hasFormatText ? scValueFs + scZoneFs + (radius * 0.05) : scZoneFs);
         this.container.style("height", `${Math.max(viewHeight, Math.ceil(totalHeight))}px`);
     }
 
