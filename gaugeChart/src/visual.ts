@@ -45,6 +45,7 @@ export class Visual implements IVisual {
     private settings:                  VisualSettings;
     private formattingSettingsService: FormattingSettingsService;
     private lastSegments:              Segment[] = [];
+    private lastSegmentLabels:        string[]  = [];
 
     constructor(options: VisualConstructorOptions) {
         this.host = options.host;
@@ -176,25 +177,53 @@ export class Visual implements IVisual {
         seg: Segment, segIndex: number, totalSegs: number,
         segmentLabels: string[], ascending: boolean, unit: string, showSigns: boolean
     ): string {
-        const base = (segmentLabels[segIndex] && segmentLabels[segIndex].trim() !== "")
+        const labelFromData = (segmentLabels[segIndex] && segmentLabels[segIndex].trim() !== "")
             ? segmentLabels[segIndex] : null;
 
+        // parseFloat quita ceros finales (30.0 → 30, 35.5 → 35.5)
+        // Si el valor es decimal <1, multiplica x100 para mostrar porcentaje
+        const fmt = (n: number): string => {
+            if (n !== 0 && Math.abs(n) < 1) return `${parseFloat((n * 100).toFixed(1))}%`;
+            return `${parseFloat(n.toFixed(1))}`;
+        };
+
+        // ── Sin signos ────────────────────────────────────────────────────────
         if (!showSigns) {
-            if (base) return base;
-            if (totalSegs === 1) return `${seg.start}${unit} \u2013 ${seg.end}${unit}`;
-            return `${seg.start} \u2013 ${seg.end}${unit}`;
+            if (labelFromData) return labelFromData;
+            if (totalSegs === 1) return `${fmt(seg.start)} \u2013 ${fmt(seg.end)}${unit}`;
+            return `${fmt(seg.start)} \u2013 ${fmt(seg.end)}${unit}`;
         }
 
-        if (base) {
-            if (totalSegs === 1) return base;
-            if (ascending) return segIndex === 0 ? `< ${base}` : `\u2265 ${base}`;
-            return segIndex === totalSegs - 1 ? `< ${base}` : `\u2265 ${base}`;
+        // ── Con etiquetas del dataset ─────────────────────────────────────────
+        if (labelFromData) {
+            if (totalSegs === 1) return labelFromData;
+            if (ascending) {
+                // ascending: todos ≤ excepto el último que es >
+                return segIndex === totalSegs - 1
+                    ? `> ${labelFromData}`
+                    : `\u2264 ${labelFromData}`;
+            } else {
+                // descending: todos ≥ excepto el último que es <
+                return segIndex === totalSegs - 1
+                    ? `< ${labelFromData}`
+                    : `\u2265 ${labelFromData}`;
+            }
         }
 
-        if (totalSegs === 1) return `${seg.start}${unit} \u2013 ${seg.end}${unit}`;
-        if (segIndex === 0)             return `\u2264 ${seg.end}${unit}`;
-        if (segIndex === totalSegs - 1) return `\u2265 ${seg.start}${unit}`;
-        return `${seg.start} \u2013 ${seg.end}${unit}`;
+        // ── Fallback numérico ─────────────────────────────────────────────────
+        // ascending=true:  ≤ seg.end, ≤ seg.end, ..., > seg.start  (último es el peor)
+        // ascending=false: ≥ seg.start, ≥ seg.start, ..., < seg.end (último es el peor)
+        if (totalSegs === 1) return `${fmt(seg.start)} \u2013 ${fmt(seg.end)}${unit}`;
+
+        if (ascending) {
+            return segIndex === totalSegs - 1
+                ? `> ${fmt(seg.start)}${unit}`
+                : `\u2264 ${fmt(seg.end)}${unit}`;
+        } else {
+            return segIndex === totalSegs - 1
+                ? `< ${fmt(seg.end)}${unit}`
+                : `\u2265 ${fmt(seg.start)}${unit}`;
+        }
     }
 
     private renderEmpty(msg: string, options: VisualUpdateOptions): void {
@@ -208,6 +237,7 @@ export class Visual implements IVisual {
 
     private render(indicator: SingleIndicatorData, viewWidth: number, viewHeight: number, options: VisualUpdateOptions): void {
         const s = this.settings;
+        this.lastSegmentLabels = indicator.segmentLabels || [];
 
         // ── Leer settings ──────────────────────────────────────────────────────
         const arcThickness    = Math.max(8,  (s.bar.height.value      as number) ?? 22);
@@ -556,7 +586,10 @@ export class Visual implements IVisual {
         ];
         this.lastSegments.forEach((seg, i) => {
             if (i >= allColorSlices.length) return;
-            allColorSlices[i].displayName = `Seg. ${i + 1}  (${seg.start} \u2013 ${seg.end})`;
+            const label = (this.lastSegmentLabels[i] && this.lastSegmentLabels[i].trim() !== "")
+                ? this.lastSegmentLabels[i]
+                : `Seg. ${i + 1}  (${seg.start} – ${seg.end})`;
+            allColorSlices[i].displayName = label;
         });
 
         this.settings.order.slices  = [this.settings.order.ascending];
