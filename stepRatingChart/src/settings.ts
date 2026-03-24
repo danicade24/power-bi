@@ -144,13 +144,25 @@ export class YAxisSettingsCard extends FormattingSettingsCard {
     fontSize       = new formattingSettings.NumUpDown({ name: "fontSize",       displayName: "Tamaño fuente niveles", value: 10 });
     fontColor      = new formattingSettings.ColorPicker({ name: "fontColor",    displayName: "Color fuente principal",  value: { value: "#000000" } });
     secondaryFontColor = new formattingSettings.ColorPicker({ name: "secondaryFontColor", displayName: "Color fuente (paréntesis)", value: { value: "#005bb5" } });
+    
+    labelStyle = new formattingSettings.ItemDropdown({
+        name:        "labelStyle",
+        displayName: "Estilo de Etiqueta",
+        value:       { value: "Both", displayName: "Ambos" },
+        items: [
+            { value: "Standard", displayName: "Standard (S&P / Fitch)" },
+            { value: "Moodys",   displayName: "Moody's" },
+            { value: "Both",     displayName: "Ambos" }
+        ]
+    });
+
     groupFontSize  = new formattingSettings.NumUpDown({ name: "groupFontSize",  displayName: "Tamaño fuente grupos",  value: 10 });
     groupFontColor = new formattingSettings.ColorPicker({ name: "groupFontColor", displayName: "Color fuente grupos", value: { value: "#888888" } });
     showDottedLines = new formattingSettings.ToggleSwitch({ name: "showDottedLines", displayName: "Líneas punteadas por nivel", value: true });
 
     name        = "yAxisSettings";
     displayName = "Eje Y";
-    slices      = [this.fontSize, this.fontColor, this.secondaryFontColor, this.groupFontSize, this.groupFontColor, this.showDottedLines];
+    slices      = [this.fontSize, this.fontColor, this.secondaryFontColor, this.labelStyle, this.groupFontSize, this.groupFontColor, this.showDottedLines];
 }
 
 // ── Modelo principal ──────────────────────────────────────────────────────────

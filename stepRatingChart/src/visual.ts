@@ -250,6 +250,7 @@ export class Visual implements IVisual {
         const yFs           = (s.yAxis.fontSize.value         as number) ?? 10;
         const yFc           = (s.yAxis.fontColor.value        as any)?.value ?? "#000000";
         const yFcSec        = (s.yAxis.secondaryFontColor.value as any)?.value ?? "#005bb5";
+        const lblStyle      = (s.yAxis.labelStyle.value       as any)?.value ?? "Both";
         const gFs           = (s.yAxis.groupFontSize.value    as number) ?? 10;
         const gFc           = (s.yAxis.groupFontColor.value   as any)?.value ?? "#888888";
         const showDotted    = s.yAxis.showDottedLines.value   as boolean;
@@ -273,11 +274,11 @@ export class Visual implements IVisual {
         // Márgenes
         const legH = showLeg ? 28 : 0;
         const legW = (showLeg && legPos === "right") ? 110 : 0;
-        const groupLabelW  = showGLabels ? 85 : 0;
-        const yLabelW      = 95;
+        const groupLabelW  = showGLabels ? 120 : 0; // Ensures enough left-padding for labels like 'Calidad buena'
+        const yLabelW      = lblStyle === "Both" ? 110 : 100; // Extra padding if dual label uses two blocks
 
         let mTop = 16;
-        let mBot = 24 + (xFs * 3.5); // Air for rotated text
+        let mBot = 24 + (xFs * dateFmt.length * 0.5); // Air for rotated text depending on char length
         
         if (showLeg) {
             if (legPos === "top") {
@@ -346,17 +347,20 @@ export class Visual implements IVisual {
                 }
 
                 if (showGLabels) {
+                    const braceX = -(yLabelW + 6);
+                    const labelX = braceX - 8;
+
                     g.append("line")
                         .classed("group-brace", true)
-                        .attr("x1", -(groupLabelW - 4)).attr("y1", yTop)
-                        .attr("x2", -(groupLabelW - 4)).attr("y2", yBott)
+                        .attr("x1", braceX).attr("y1", yTop)
+                        .attr("x2", braceX).attr("y2", yBott)
                         .attr("stroke", "#aaaaaa").attr("stroke-width", 1);
 
                     g.append("text")
                         .classed("group-label", true)
-                        .attr("x", -(groupLabelW))
+                        .attr("x", labelX)
                         .attr("y", yMid)
-                        .attr("text-anchor", "start")
+                        .attr("text-anchor", "end")
                         .attr("dominant-baseline", "middle")
                         .attr("font-size", `${gFs}px`)
                         .attr("fill", gFc)
@@ -368,6 +372,9 @@ export class Visual implements IVisual {
         // Etiquetas eje Y
         visibleLevels.forEach(({ num, label }) => {
             const parts = label.split(" (");
+            const txtStandard = parts[0];
+            const txtMoodys   = parts.length > 1 ? parts[1].replace(")", "") : parts[0]; 
+
             const labelEl = g.append("text")
                 .classed("y-level-label", true)
                 .attr("x", -4)
@@ -376,16 +383,28 @@ export class Visual implements IVisual {
                 .attr("dominant-baseline", "middle")
                 .attr("font-size", `${yFs}px`);
 
-            labelEl.append("tspan")
-                .attr("font-weight", "bold")
-                .attr("fill", yFc)
-                .text(parts[0]);
-
-            if (parts.length > 1) {
+            if (lblStyle === "Standard") {
                 labelEl.append("tspan")
-                    .attr("font-weight", "normal")
+                    .attr("font-weight", "bold")
+                    .attr("fill", yFc)
+                    .text(txtStandard);
+            } else if (lblStyle === "Moodys") {
+                labelEl.append("tspan")
+                    .attr("font-weight", "bold")
                     .attr("fill", yFcSec)
-                    .text(" (" + parts[1]);
+                    .text(txtMoodys);
+            } else {
+                labelEl.append("tspan")
+                    .attr("font-weight", "bold")
+                    .attr("fill", yFc)
+                    .text(txtStandard);
+
+                if (parts.length > 1) {
+                    labelEl.append("tspan")
+                        .attr("font-weight", "normal")
+                        .attr("fill", yFcSec)
+                        .text(" (" + parts[1]);
+                }
             }
         });
 

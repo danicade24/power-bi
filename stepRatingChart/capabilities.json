@@ -134,6 +134,16 @@
         "fontSize":        { "displayName": "Tamaño fuente niveles", "type": { "numeric": true } },
         "fontColor":       { "displayName": "Color fuente principal",  "type": { "fill": { "solid": { "color": true } } } },
         "secondaryFontColor": { "displayName": "Color fuente (paréntesis)", "type": { "fill": { "solid": { "color": true } } } },
+        "labelStyle": {
+          "displayName": "Estilo de Etiqueta",
+          "type": {
+            "enumeration": [
+              { "value": "Standard", "displayName": "Standard (S&P / Fitch)" },
+              { "value": "Moodys", "displayName": "Moody's" },
+              { "value": "Both", "displayName": "Ambos" }
+            ]
+          }
+        },
         "groupFontSize":   { "displayName": "Tamaño fuente grupos",  "type": { "numeric": true } },
         "groupFontColor":  { "displayName": "Color fuente grupos",   "type": { "fill": { "solid": { "color": true } } } },
         "showDottedLines": { "displayName": "Líneas punteadas por nivel", "type": { "bool": true } }
