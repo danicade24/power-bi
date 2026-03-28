@@ -148,7 +148,7 @@ export class YAxisSettingsCard extends FormattingSettingsCard {
     labelStyle = new formattingSettings.ItemDropdown({
         name:        "labelStyle",
         displayName: "Estilo de Etiqueta",
-        value:       { value: "Both", displayName: "Ambos" },
+        value:       { value: "Standard", displayName: "Standard (S&P / Fitch)" },
         items: [
             { value: "Standard", displayName: "Standard (S&P / Fitch)" },
             { value: "Moodys",   displayName: "Moody's" },

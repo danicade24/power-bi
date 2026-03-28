@@ -17,6 +17,12 @@
       "name": "rating",
       "kind": "Grouping",
       "description": "Valor del rating como texto (AAA, AA+, BBB-, etc.)"
+    },
+    {
+      "displayName": "País",
+      "name": "country",
+      "kind": "Grouping",
+      "description": "Campo de país — si se arrastra, cada país tendrá su propia línea. Con múltiples agencias se promedia el rating por país y fecha."
     }
   ],
 
@@ -24,17 +30,19 @@
     {
       "conditions": [
         {
-          "date":   { "max": 1 },
-          "agency": { "max": 1 },
-          "rating": { "max": 1 }
+          "date":    { "max": 1 },
+          "agency":  { "max": 1 },
+          "rating":  { "max": 1 },
+          "country": { "max": 1 }
         }
       ],
       "table": {
         "rows": {
           "select": [
-            { "for": { "in": "date"   } },
-            { "for": { "in": "agency" } },
-            { "for": { "in": "rating" } }
+            { "for": { "in": "date"    } },
+            { "for": { "in": "agency"  } },
+            { "for": { "in": "rating"  } },
+            { "for": { "in": "country" } }
           ],
           "dataReductionAlgorithm": { "top": { "count": 5000 } }
         }
@@ -46,40 +54,36 @@
 
     "ratingLevels": {
       "displayName": "Niveles de Rating (eje Y)",
-      "description": "Define los niveles en orden descendente separados por coma.",
       "properties": {
-        "levels": {
-          "displayName": "Niveles (orden descendente, separados por coma)",
-          "type": { "text": true }
-        }
+        "levels": { "displayName": "Niveles (orden descendente, separados por coma)", "type": { "text": true } }
       }
     },
 
     "ratingGroups": {
       "displayName": "Grupos del eje Y",
       "properties": {
-        "group1Name":          { "displayName": "Grupo 1 — Nombre",                      "type": { "text": true } },
-        "group1Levels":        { "displayName": "Grupo 1 — Niveles (separados por coma)", "type": { "text": true } },
-        "group2Name":          { "displayName": "Grupo 2 — Nombre",                      "type": { "text": true } },
-        "group2Levels":        { "displayName": "Grupo 2 — Niveles",                     "type": { "text": true } },
-        "group3Name":          { "displayName": "Grupo 3 — Nombre",                      "type": { "text": true } },
-        "group3Levels":        { "displayName": "Grupo 3 — Niveles",                     "type": { "text": true } },
-        "group4Name":          { "displayName": "Grupo 4 — Nombre",                      "type": { "text": true } },
-        "group4Levels":        { "displayName": "Grupo 4 — Niveles",                     "type": { "text": true } },
-        "group5Name":          { "displayName": "Grupo 5 — Nombre",                      "type": { "text": true } },
-        "group5Levels":        { "displayName": "Grupo 5 — Niveles",                     "type": { "text": true } },
-        "showGroupLabels":     { "displayName": "Mostrar etiquetas de grupo",             "type": { "bool": true } },
-        "showGroupSeparators": { "displayName": "Mostrar líneas de separación",           "type": { "bool": true } }
+        "group1Name":          { "displayName": "Grupo 1 — Nombre",   "type": { "text": true } },
+        "group1Levels":        { "displayName": "Grupo 1 — Niveles",  "type": { "text": true } },
+        "group2Name":          { "displayName": "Grupo 2 — Nombre",   "type": { "text": true } },
+        "group2Levels":        { "displayName": "Grupo 2 — Niveles",  "type": { "text": true } },
+        "group3Name":          { "displayName": "Grupo 3 — Nombre",   "type": { "text": true } },
+        "group3Levels":        { "displayName": "Grupo 3 — Niveles",  "type": { "text": true } },
+        "group4Name":          { "displayName": "Grupo 4 — Nombre",   "type": { "text": true } },
+        "group4Levels":        { "displayName": "Grupo 4 — Niveles",  "type": { "text": true } },
+        "group5Name":          { "displayName": "Grupo 5 — Nombre",   "type": { "text": true } },
+        "group5Levels":        { "displayName": "Grupo 5 — Niveles",  "type": { "text": true } },
+        "showGroupLabels":     { "displayName": "Mostrar etiquetas de grupo",   "type": { "bool": true } },
+        "showGroupSeparators": { "displayName": "Mostrar líneas de separación", "type": { "bool": true } }
       }
     },
 
     "seriesSettings": {
       "displayName": "Series",
       "properties": {
-        "lineWidth":  { "displayName": "Grosor de línea (px)", "type": { "numeric": true } },
-        "showDots":   { "displayName": "Mostrar puntos (vértices)", "type": { "bool": true } },
-        "dotRadius":  { "displayName": "Radio de nodos", "type": { "numeric": true } },
-        "showLegend": { "displayName": "Mostrar leyenda",      "type": { "bool":    true } },
+        "lineWidth":      { "displayName": "Grosor de línea (px)", "type": { "numeric": true } },
+        "showDots":       { "displayName": "Mostrar puntos",       "type": { "bool":    true } },
+        "dotRadius":      { "displayName": "Radio de puntos (px)", "type": { "numeric": true } },
+        "showLegend":     { "displayName": "Mostrar leyenda",      "type": { "bool":    true } },
         "legendPosition": {
           "displayName": "Posición de leyenda",
           "type": {
@@ -93,19 +97,19 @@
       }
     },
 
-    "seriesColors": {
-      "displayName": "Colores de Agencias",
+    "seriesColorsSettings": {
+      "displayName": "Colores de Series",
       "properties": {
-        "color1": { "displayName": "Agencia 1", "type": { "fill": { "solid": { "color": true } } } },
-        "color2": { "displayName": "Agencia 2", "type": { "fill": { "solid": { "color": true } } } },
-        "color3": { "displayName": "Agencia 3", "type": { "fill": { "solid": { "color": true } } } },
-        "color4": { "displayName": "Agencia 4", "type": { "fill": { "solid": { "color": true } } } },
-        "color5": { "displayName": "Agencia 5", "type": { "fill": { "solid": { "color": true } } } },
-        "color6": { "displayName": "Agencia 6", "type": { "fill": { "solid": { "color": true } } } },
-        "color7": { "displayName": "Agencia 7", "type": { "fill": { "solid": { "color": true } } } },
-        "color8": { "displayName": "Agencia 8", "type": { "fill": { "solid": { "color": true } } } },
-        "color9": { "displayName": "Agencia 9", "type": { "fill": { "solid": { "color": true } } } },
-        "color10": { "displayName": "Agencia 10", "type": { "fill": { "solid": { "color": true } } } }
+        "color1":  { "displayName": "Serie 1",  "type": { "fill": { "solid": { "color": true } } } },
+        "color2":  { "displayName": "Serie 2",  "type": { "fill": { "solid": { "color": true } } } },
+        "color3":  { "displayName": "Serie 3",  "type": { "fill": { "solid": { "color": true } } } },
+        "color4":  { "displayName": "Serie 4",  "type": { "fill": { "solid": { "color": true } } } },
+        "color5":  { "displayName": "Serie 5",  "type": { "fill": { "solid": { "color": true } } } },
+        "color6":  { "displayName": "Serie 6",  "type": { "fill": { "solid": { "color": true } } } },
+        "color7":  { "displayName": "Serie 7",  "type": { "fill": { "solid": { "color": true } } } },
+        "color8":  { "displayName": "Serie 8",  "type": { "fill": { "solid": { "color": true } } } },
+        "color9":  { "displayName": "Serie 9",  "type": { "fill": { "solid": { "color": true } } } },
+        "color10": { "displayName": "Serie 10", "type": { "fill": { "solid": { "color": true } } } }
       }
     },
 
@@ -131,22 +135,22 @@
     "yAxisSettings": {
       "displayName": "Eje Y",
       "properties": {
-        "fontSize":        { "displayName": "Tamaño fuente niveles", "type": { "numeric": true } },
-        "fontColor":       { "displayName": "Color fuente principal",  "type": { "fill": { "solid": { "color": true } } } },
-        "secondaryFontColor": { "displayName": "Color fuente (paréntesis)", "type": { "fill": { "solid": { "color": true } } } },
+        "fontSize":            { "displayName": "Tamaño fuente niveles",  "type": { "numeric": true } },
+        "fontColor":           { "displayName": "Color Fitch/S&P",        "type": { "fill": { "solid": { "color": true } } } },
+        "secondaryFontColor":  { "displayName": "Color Moody's",          "type": { "fill": { "solid": { "color": true } } } },
         "labelStyle": {
-          "displayName": "Estilo de Etiqueta",
+          "displayName": "Mostrar nomenclatura",
           "type": {
             "enumeration": [
-              { "value": "Standard", "displayName": "Standard (S&P / Fitch)" },
-              { "value": "Moodys", "displayName": "Moody's" },
-              { "value": "Both", "displayName": "Ambos" }
+              { "value": "Both",     "displayName": "Fitch/S&P + Moody's" },
+              { "value": "Standard", "displayName": "Solo Fitch/S&P"      },
+              { "value": "Moodys",   "displayName": "Solo Moody's"        }
             ]
           }
         },
-        "groupFontSize":   { "displayName": "Tamaño fuente grupos",  "type": { "numeric": true } },
-        "groupFontColor":  { "displayName": "Color fuente grupos",   "type": { "fill": { "solid": { "color": true } } } },
-        "showDottedLines": { "displayName": "Líneas punteadas por nivel", "type": { "bool": true } }
+        "groupFontSize":   { "displayName": "Tamaño fuente grupos",      "type": { "numeric": true } },
+        "groupFontColor":  { "displayName": "Color fuente grupos",       "type": { "fill": { "solid": { "color": true } } } },
+        "showDottedLines": { "displayName": "Líneas punteadas por nivel", "type": { "bool":    true } }
       }
     }
 
