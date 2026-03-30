@@ -37,8 +37,8 @@ export class RatingGroupsCard extends FormattingSettingsCard {
     group5Name   = new formattingSettings.TextInput({ name: "group5Name",   displayName: "Grupo 1 — Nombre",   value: "", placeholder: "" });
     group5Levels = new formattingSettings.TextInput({ name: "group5Levels", displayName: "Grupo 1 — Niveles",  value: "", placeholder: "" });
 
-    showGroupLabels     = new formattingSettings.ToggleSwitch({ name: "showGroupLabels",     displayName: "Mostrar etiquetas de grupo",      value: true  });
-    showGroupSeparators = new formattingSettings.ToggleSwitch({ name: "showGroupSeparators", displayName: "Mostrar líneas de separación",    value: true  });
+    showGroupLabels     = new formattingSettings.ToggleSwitch({ name: "showGroupLabels",     displayName: "Mostrar etiquetas de grupo",      value: false  });
+    showGroupSeparators = new formattingSettings.ToggleSwitch({ name: "showGroupSeparators", displayName: "Mostrar líneas de separación",    value: false  });
 
     name        = "ratingGroups";
     displayName = "Grupos del eje Y";

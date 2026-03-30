@@ -70,7 +70,21 @@ interface AgencySeries {
     color: string;
 }
 
-const SERIES_COLORS = ["#1a1a1a", "#b0c030", "#00b4d8", "#e07b39", "#9b5de5", "#f15bb5"];
+// Paleta de 20 colores bien diferenciados (Tableau10 + Paired + extras)
+const BASE_COLORS = [
+    "#4e79a7","#f28e2b","#e15759","#76b7b2","#59a14f",
+    "#edc948","#b07aa1","#ff9da7","#9c755f","#bab0ac",
+    "#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd",
+    "#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"
+];
+
+/** Genera un color para el índice i, bien diferenciado aunque haya muchas series */
+function seriesColor(i: number, total: number): string {
+    if (i < BASE_COLORS.length) return BASE_COLORS[i];
+    // Para series extra: distribuir hue uniformemente en HSL
+    const hue = Math.round((i * 360) / Math.max(total, 1)) % 360;
+    return `hsl(${hue}, 65%, 42%)`;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 export class Visual implements IVisual {
@@ -80,10 +94,13 @@ export class Visual implements IVisual {
     private mainG: d3.Selection<SVGGElement, unknown, null, undefined>;
     private settings: VisualSettings;
     private formattingSettingsService: FormattingSettingsService;
+    private container: HTMLElement;  // contenedor raíz del visual (para la leyenda HTML)
 
     constructor(options: VisualConstructorOptions) {
         this.host = options.host;
         this.formattingSettingsService = new FormattingSettingsService();
+        this.container = options.element;
+        (this.container as HTMLElement).style.position = "relative"; // necesario para los hijos absolutos
 
         this.svg = d3.select(options.element)
             .append("svg")
@@ -98,6 +115,9 @@ export class Visual implements IVisual {
     public update(options: VisualUpdateOptions): void {
         this.svg.selectAll("*").remove();
         this.mainG = this.svg.append("g");
+
+        // Limpiar leyenda HTML previa
+        d3.select(this.container).selectAll(".legend-scroll-wrapper").remove();
 
         this.settings = this.formattingSettingsService.populateFormattingSettingsModel(
             VisualSettings, options.dataViews?.[0]
@@ -243,11 +263,11 @@ export class Visual implements IVisual {
                 prop.displayName = key;
                 prop.visible = true;
                 if (!prop.value.value) {
-                    prop.value.value = SERIES_COLORS[i % SERIES_COLORS.length];
+                    prop.value.value = seriesColor(i, uniqueKeys.length);
                 }
                 keyColors.set(key, prop.value.value as string);
             } else {
-                keyColors.set(key, SERIES_COLORS[i % SERIES_COLORS.length]);
+                keyColors.set(key, seriesColor(i, uniqueKeys.length));
             }
         });
 
@@ -441,18 +461,13 @@ export class Visual implements IVisual {
             }
         });
 
-        // Eje X — muestra la fecha tal cual se ingestó, escalonada para que no colapse verticalmente
-        const uniqueTimes = Array.from(new Set(points.map(p => p.date.getTime()))).sort((a, b) => a - b);
-        let tickDates = uniqueTimes.map(t => new Date(t));
-        const desiredTicks = Math.max(2, Math.min(maxTicks, Math.floor(W / 90))); // 90px para acomodar texto horizontal
-
-        if (tickDates.length > desiredTicks) {
-            const step = Math.max(1, Math.floor(tickDates.length / desiredTicks));
-            tickDates = tickDates.filter((_, i) => i % step === 0);
-        }
+        // Eje X — ticks dinámicos como Power BI nativo
+        // D3 elige automáticamente el intervalo (meses, trimestres, años)
+        // basado en el rango de fechas y el espacio disponible.
+        const desiredTicks = Math.max(2, Math.min(maxTicks, Math.floor(W / 80)));
 
         const xAxis = d3.axisBottom(xScale)
-            .tickValues(tickDates)
+            .ticks(desiredTicks)
             .tickFormat((d: Date | d3.NumberValue) => this.formatDate(d as Date, dateFmt, this.host.locale));
 
         const xAxisG = g.append("g")
@@ -508,12 +523,11 @@ export class Visual implements IVisual {
         // Overlay transparente que captura el mouse sobre toda el área del gráfico
         const crosshairG = g.append("g").style("pointer-events", "none");
 
-        // Línea vertical
+        // Línea vertical — continua (sin dasharray)
         const crosshairLine = crosshairG.append("line")
             .attr("y1", 0).attr("y2", H)
-            .attr("stroke", "#999999")
+            .attr("stroke", "#666666")
             .attr("stroke-width", 1)
-            .attr("stroke-dasharray", "4,3")
             .style("opacity", 0);
 
         // Caja del tooltip
@@ -547,12 +561,12 @@ export class Visual implements IVisual {
             .attr("width", W).attr("height", H)
             .attr("fill", "transparent")
             .on("mousemove", function (event) {
-                const [mx] = d3.pointer(event);
+                const [mx, my] = d3.pointer(event);
                 const hoverDate = xScale.invert(mx);
 
-                // Encontrar el rating activo de cada serie en esa fecha
-                // Con curveStepAfter, el rating válido es el último punto con date <= hoverDate
-                const rows: { name: string; color: string; ratingText: string; ratingNum: number }[] = [];
+                // Encontrar la serie más cercana al cursor (distancia Y mínima)
+                let closestSerie: typeof series[0] | null = null;
+                let closestDist = Infinity;
 
                 series.forEach(serie => {
                     const valid = serie.points.filter(
@@ -560,16 +574,36 @@ export class Visual implements IVisual {
                     );
                     if (valid.length === 0) return;
                     const last = valid[valid.length - 1];
-                    const label = RATING_LABEL[last.ratingNum] ?? last.ratingText;
-                    const spFitch = label.split(" (")[0].trim();  // "BBB-" sin "(Baa3)"
+                    const serieY = yScale(last.ratingNum);
+                    const dist = Math.abs(my - serieY);
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closestSerie = serie;
+                    }
+                });
 
+                // Solo mostrar si el cursor está a menos de 30px de alguna serie
+                if (!closestSerie || closestDist > 30) {
+                    crosshairLine.style("opacity", 0);
+                    tooltipG.style("opacity", 0);
+                    return;
+                }
+
+                const rows: { name: string; color: string; ratingText: string; ratingNum: number }[] = [];
+                const valid = (closestSerie as typeof series[0]).points.filter(
+                    p => p.ratingNum >= dataYMin && p.ratingNum <= dataYMax && p.date <= hoverDate
+                );
+                if (valid.length > 0) {
+                    const last = valid[valid.length - 1];
+                    const label = RATING_LABEL[last.ratingNum] ?? last.ratingText;
+                    const spFitch = label.split(" (")[0].trim();
                     rows.push({
-                        name: serie.name,
-                        color: serie.color,
+                        name: (closestSerie as typeof series[0]).name,
+                        color: (closestSerie as typeof series[0]).color,
                         ratingText: spFitch,
                         ratingNum: last.ratingNum
                     });
-                });
+                }
 
                 if (rows.length === 0) {
                     crosshairLine.style("opacity", 0);
@@ -630,41 +664,132 @@ export class Visual implements IVisual {
                 tooltipG.style("opacity", 0);
             });
 
-        // Leyenda
+        // ── Leyenda HTML con flechas de navegación estilo Power BI ───────────
         if (showLeg) {
-            const drawLeg = (
-                legG: d3.Selection<SVGGElement, unknown, null, undefined>,
-                vertical: boolean
-            ) => {
-                let offset = 0;
-                const circR = 5; // radio del círculo de leyenda
-                series.forEach(serie => {
-                    // Círculo relleno como símbolo de la serie
-                    legG.append("circle")
-                        .attr("cx", vertical ? circR : offset + circR)
-                        .attr("cy", vertical ? offset + 6 : 6)
-                        .attr("r", circR)
-                        .attr("fill", serie.color);
-                    legG.append("text")
-                        .attr("x", vertical ? circR * 2 + 6 : offset + circR * 2 + 6)
-                        .attr("y", vertical ? offset + 10 : 10)
-                        .attr("font-size", `${xFs}px`).attr("fill", xFc)
-                        .attr("dominant-baseline", "middle")
-                        .attr("dy", "0")
-                        .text(serie.name);
-                    offset += vertical ? xFs + 10 : circR * 2 + 6 + serie.name.length * xFs * 0.62 + 10;
-                });
-            };
+            const isRight = legPos === "right";
+            const isTop   = legPos === "top";
 
-            if (legPos === "bottom") {
-                drawLeg(this.mainG.append("g")
-                    .attr("transform", `translate(${margin.left}, ${viewHeight - legH + 4})`), false);
-            } else if (legPos === "top") {
-                drawLeg(this.mainG.append("g")
-                    .attr("transform", `translate(${margin.left}, 4)`), false);
+            // CSS global — solo se inyecta una vez
+            const styleId = "legend-arrow-style";
+            if (!document.getElementById(styleId)) {
+                const styleEl = document.createElement("style");
+                styleEl.id = styleId;
+                styleEl.textContent = [
+                    ".leg-items { display:flex; flex-wrap:nowrap; gap:14px; align-items:center;",
+                    "  overflow:hidden; flex:1; min-width:0; scrollbar-width:none; }",
+                    ".leg-items::-webkit-scrollbar { display:none; }",
+                    ".leg-arrow { display:none; align-items:center; justify-content:center;",
+                    "  width:18px; height:100%; cursor:pointer; flex-shrink:0;",
+                    "  color:#888; font-size:10px; user-select:none;",
+                    "  background:transparent; border:none; padding:0;",
+                    "  transition:color 0.15s; }",
+                    ".leg-arrow:hover { color:#333; }",
+                    ".leg-arrow.visible { display:flex; }",
+                ].join(" ");
+                document.head.appendChild(styleEl);
+            }
+
+            // Contenedor raíz de la leyenda
+            const legDiv = d3.select(this.container)
+                .append("div")
+                .classed("legend-scroll-wrapper", true)
+                .style("position", "absolute")
+                .style("box-sizing", "border-box")
+                .style("display", "flex")
+                .style("align-items", "center")
+                .style("font-family", "Segoe UI, sans-serif")
+                .style("overflow", "hidden");
+
+            if (isRight) {
+                legDiv
+                    .style("right", "0")
+                    .style("top", `${margin.top}px`)
+                    .style("width", `${legW - 4}px`)
+                    .style("height", `${viewHeight - margin.top - margin.bottom}px`)
+                    .style("flex-direction", "column")
+                    .style("align-items", "flex-start")
+                    .style("overflow-y", "auto")
+                    .style("gap", "6px")
+                    .style("padding", "2px 4px");
+
+                // Items (sin flechas en modo vertical)
+                series.forEach(serie => {
+                    const item = legDiv.append("div")
+                        .style("display", "flex")
+                        .style("align-items", "center")
+                        .style("gap", "5px")
+                        .style("white-space", "nowrap")
+                        .style("flex-shrink", "0");
+                    const svgEl = item.append("svg").attr("width","10").attr("height","10").style("flex-shrink","0");
+                    svgEl.append("circle").attr("cx","5").attr("cy","5").attr("r","5").attr("fill", serie.color);
+                    item.append("span").style("font-size",`${xFs}px`).style("color",xFc).text(serie.name);
+                });
+
             } else {
-                drawLeg(this.mainG.append("g")
-                    .attr("transform", `translate(${viewWidth - legW + 4}, ${margin.top})`), true);
+                // Leyenda horizontal — con flechas ◀ ▶
+                const topPx = isTop ? "0" : `${viewHeight - legH}px`;
+                legDiv
+                    .style("left",   `${margin.left}px`)
+                    .style("right",  `${margin.right}px`)
+                    .style("top",    topPx)
+                    .style("height", `${legH}px`)
+                    .style("flex-direction", "row")
+                    .style("padding", "2px 0");
+
+                // Flecha izquierda
+                const btnL = legDiv.append("button")
+                    .classed("leg-arrow", true)
+                    .attr("aria-label", "Anterior")
+                    .text("\u25C0");
+
+                // Contenedor items (scroll invisible)
+                const itemsDiv = legDiv.append("div")
+                    .classed("leg-items", true);
+
+                // Flecha derecha
+                const btnR = legDiv.append("button")
+                    .classed("leg-arrow", true)
+                    .attr("aria-label", "Siguiente")
+                    .text("\u25B6");
+
+                // Poblar items
+                series.forEach(serie => {
+                    const item = itemsDiv.append("div")
+                        .style("display", "inline-flex")
+                        .style("align-items", "center")
+                        .style("gap", "5px")
+                        .style("white-space", "nowrap")
+                        .style("flex-shrink", "0");
+                    const svgEl = item.append("svg").attr("width","10").attr("height","10").style("flex-shrink","0");
+                    svgEl.append("circle").attr("cx","5").attr("cy","5").attr("r","5").attr("fill", serie.color);
+                    item.append("span").style("font-size",`${xFs}px`).style("color",xFc).text(serie.name);
+                });
+
+                // Lógica de flechas — se ejecuta después de que el DOM esté pintado
+                const itemsEl  = itemsDiv.node() as HTMLElement;
+                const btnLEl   = btnL.node()    as HTMLElement;
+                const btnREl   = btnR.node()    as HTMLElement;
+                const scrollAmt = 120;
+
+                const updateArrows = () => {
+                    const hasOverflow = itemsEl.scrollWidth > itemsEl.clientWidth + 1;
+                    const atStart     = itemsEl.scrollLeft <= 0;
+                    const atEnd       = itemsEl.scrollLeft + itemsEl.clientWidth >= itemsEl.scrollWidth - 1;
+                    btnLEl.classList.toggle("visible", hasOverflow && !atStart);
+                    btnREl.classList.toggle("visible", hasOverflow && !atEnd);
+                };
+
+                btnLEl.addEventListener("click", () => {
+                    itemsEl.scrollBy({ left: -scrollAmt, behavior: "smooth" });
+                    setTimeout(updateArrows, 320);
+                });
+                btnREl.addEventListener("click", () => {
+                    itemsEl.scrollBy({ left: scrollAmt, behavior: "smooth" });
+                    setTimeout(updateArrows, 320);
+                });
+
+                // Esperar a que el layout esté listo para medir overflow
+                setTimeout(updateArrows, 0);
             }
         }
     }
