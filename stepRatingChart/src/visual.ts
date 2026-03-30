@@ -623,7 +623,7 @@ export class Visual implements IVisual {
                     const last = valid[valid.length - 1];
                     const serieY = yScale(last.ratingNum);
                     const dist = Math.abs(my - serieY);
-                    if (dist > 30) return;   // fuera del umbral → ignorar
+                    if (dist > 10) return;   // fuera del umbral → ignorar
 
                     const label = RATING_LABEL[last.ratingNum] ?? last.ratingText;
                     const spFitch = label.split(" (")[0].trim();
@@ -663,7 +663,8 @@ export class Visual implements IVisual {
 
                     tooltipDots[ri]
                         .attr("cx", tooltipPad + 4)
-                        .attr("cy", lineH + ri * lineH + lineH * 0.3);
+                        .attr("cy", lineH + ri * lineH + lineH * 0.3)
+                        .attr("fill", row.color);   // ← sincronizar con el color real de la serie
 
                     tooltipRows[ri]
                         .attr("x", tooltipPad + 14)
