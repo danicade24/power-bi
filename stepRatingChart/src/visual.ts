@@ -130,13 +130,38 @@ export class Visual implements IVisual {
             return;
         }
 
+        // Obtener el rango de fechas global del dataset (incluso filas con rating vacío)
+        let globalMinDate: Date | null = null;
+        let globalMaxDate: Date | null = null;
+        if (dataView.table && dataView.table.columns && dataView.table.rows) {
+            let dateIdx = -1;
+            dataView.table.columns.forEach((col, i) => { if (col.roles["date"]) dateIdx = i; });
+            if (dateIdx >= 0) {
+                let minMs = Infinity;
+                let maxMs = -Infinity;
+                dataView.table.rows.forEach(r => {
+                    const rawD = r[dateIdx];
+                    if (rawD) {
+                        const d = rawD instanceof Date ? rawD : new Date(String(rawD));
+                        const t = d.getTime();
+                        if (!isNaN(t)) {
+                            if (t < minMs) minMs = t;
+                            if (t > maxMs) maxMs = t;
+                        }
+                    }
+                });
+                if (minMs !== Infinity) globalMinDate = new Date(minMs);
+                if (maxMs !== -Infinity) globalMaxDate = new Date(maxMs);
+            }
+        }
+
         const points = this.extractData(dataView);
         if (!points.length) {
             this.renderEmpty("Sin datos o ratings no reconocidos en el diccionario", options);
             return;
         }
 
-        this.render(points, options.viewport.width, options.viewport.height);
+        this.render(points, globalMinDate, globalMaxDate, options.viewport.width, options.viewport.height);
     }
 
     // ── Extracción ────────────────────────────────────────────────────────────
@@ -292,7 +317,7 @@ export class Visual implements IVisual {
     }
 
     // ── Render ────────────────────────────────────────────────────────────────
-    private render(points: RatingPoint[], viewWidth: number, viewHeight: number): void {
+    private render(points: RatingPoint[], minDate: Date | null, maxDate: Date | null, viewWidth: number, viewHeight: number): void {
         const s = this.settings;
 
         const showDots = s.series.showDots.value as boolean;
@@ -357,8 +382,11 @@ export class Visual implements IVisual {
             .range([0, H]);
 
         const allDates = points.map(p => p.date);
+        const finalMinDate = minDate ?? d3.min(allDates)!;
+        const finalMaxDate = maxDate ?? d3.max(allDates)!;
+
         const xScale = d3.scaleTime()
-            .domain([d3.min(allDates)!, d3.max(allDates)!])
+            .domain([finalMinDate, finalMaxDate])
             .range([0, W]);
 
         // Líneas punteadas horizontales
@@ -490,6 +518,25 @@ export class Visual implements IVisual {
             );
             if (validPoints.length === 0) return;
 
+            // Extender la línea horizontalmente hacia ambos extremos del gráfico
+            const pathPoints = [...validPoints];
+            
+            // Extender hacia atrás (hasta el mínimo global)
+            if (finalMinDate && pathPoints[0].date.getTime() > finalMinDate.getTime()) {
+                pathPoints.unshift({
+                    ...pathPoints[0],
+                    date: finalMinDate
+                });
+            }
+
+            // Extender hacia adelante (hasta el máximo global)
+            if (finalMaxDate && pathPoints[pathPoints.length - 1].date.getTime() < finalMaxDate.getTime()) {
+                pathPoints.push({
+                    ...pathPoints[pathPoints.length - 1],
+                    date: finalMaxDate
+                });
+            }
+
             const lineGen = d3.line<RatingPoint>()
                 .x(p => xScale(p.date))
                 .y(p => yScale(p.ratingNum))
@@ -497,7 +544,7 @@ export class Visual implements IVisual {
 
             g.append("path")
                 .classed("series-line", true)
-                .datum(validPoints)
+                .datum(pathPoints)
                 .attr("fill", "none")
                 .attr("stroke", serie.color)
                 .attr("stroke-width", lineW)

@@ -44,7 +44,7 @@
             { "for": { "in": "rating"  } },
             { "for": { "in": "country" } }
           ],
-          "dataReductionAlgorithm": { "top": { "count": 5000 } }
+          "dataReductionAlgorithm": { "top": { "count": 30000 } }
         }
       }
     }
