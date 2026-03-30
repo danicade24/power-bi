@@ -611,9 +611,9 @@ export class Visual implements IVisual {
                 const [mx, my] = d3.pointer(event);
                 const hoverDate = xScale.invert(mx);
 
-                // Encontrar la serie más cercana al cursor (distancia Y mínima)
-                let closestSerie: typeof series[0] | null = null;
-                let closestDist = Infinity;
+                // Recopilar TODAS las series dentro del umbral de proximidad (30px)
+                // Si coinciden varias (mismo rating), se listan todas; si solo hay una, se muestra una.
+                const rows: { name: string; color: string; ratingText: string; ratingNum: number }[] = [];
 
                 series.forEach(serie => {
                     const valid = serie.points.filter(
@@ -623,34 +623,17 @@ export class Visual implements IVisual {
                     const last = valid[valid.length - 1];
                     const serieY = yScale(last.ratingNum);
                     const dist = Math.abs(my - serieY);
-                    if (dist < closestDist) {
-                        closestDist = dist;
-                        closestSerie = serie;
-                    }
-                });
+                    if (dist > 30) return;   // fuera del umbral → ignorar
 
-                // Solo mostrar si el cursor está a menos de 30px de alguna serie
-                if (!closestSerie || closestDist > 30) {
-                    crosshairLine.style("opacity", 0);
-                    tooltipG.style("opacity", 0);
-                    return;
-                }
-
-                const rows: { name: string; color: string; ratingText: string; ratingNum: number }[] = [];
-                const valid = (closestSerie as typeof series[0]).points.filter(
-                    p => p.ratingNum >= dataYMin && p.ratingNum <= dataYMax && p.date <= hoverDate
-                );
-                if (valid.length > 0) {
-                    const last = valid[valid.length - 1];
                     const label = RATING_LABEL[last.ratingNum] ?? last.ratingText;
                     const spFitch = label.split(" (")[0].trim();
                     rows.push({
-                        name: (closestSerie as typeof series[0]).name,
-                        color: (closestSerie as typeof series[0]).color,
+                        name: serie.name,
+                        color: serie.color,
                         ratingText: spFitch,
                         ratingNum: last.ratingNum
                     });
-                }
+                });
 
                 if (rows.length === 0) {
                     crosshairLine.style("opacity", 0);

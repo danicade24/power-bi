@@ -1,13 +1,13 @@
 {
   "dataRoles": [
     {
-      "displayName": "Fecha",
+      "displayName": "Date",
       "name": "date",
       "kind": "Grouping",
       "description": "Columna de fecha de cada cambio de rating"
     },
     {
-      "displayName": "Agencia",
+      "displayName": "Agency",
       "name": "agency",
       "kind": "Grouping",
       "description": "Nombre de la agencia (Fitch, Moody's, S&P, etc.)"
@@ -19,10 +19,16 @@
       "description": "Valor del rating como texto (AAA, AA+, BBB-, etc.)"
     },
     {
-      "displayName": "País",
+      "displayName": "Client",
       "name": "country",
       "kind": "Grouping",
       "description": "Campo de país — si se arrastra, cada país tendrá su propia línea. Con múltiples agencias se promedia el rating por país y fecha."
+    },
+    {
+      "displayName": "Legend",
+      "name": "legend",
+      "kind": "Grouping",
+      "description": "Leyenda del gráfico"
     }
   ],
 
@@ -44,7 +50,7 @@
             { "for": { "in": "rating"  } },
             { "for": { "in": "country" } }
           ],
-          "dataReductionAlgorithm": { "window": { "count": 5000 } }
+          "dataReductionAlgorithm": { "window": { "count": 25000 } }
         }
       }
     }
