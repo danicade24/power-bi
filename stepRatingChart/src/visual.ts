@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 
 import powerbi from "powerbi-visuals-api";
 import { FormattingSettingsService } from "powerbi-visuals-utils-formattingmodel";
@@ -178,20 +178,20 @@ export class Visual implements IVisual {
         this.render(points, globalMinDate, globalMaxDate, options.viewport.width, options.viewport.height);
     }
 
-    // ── Extracción ────────────────────────────────────────────────────────────
+    // -- Extraccion con filtro de estado + limpieza Fitch integrada -----------
     private extractData(dataView: DataView): RatingPoint[] {
-        const table = dataView.table;
+        const table   = dataView.table;
         const columns = table.columns;
 
-        let dateIdx = -1;
-        let agencyIdx = -1;
-        let ratingIdx = -1;
+        let dateIdx    = -1;
+        let agencyIdx  = -1;
+        let ratingIdx  = -1;
         let countryIdx = -1;
 
         columns.forEach((col, i) => {
-            if (col.roles["date"]) dateIdx = i;
-            if (col.roles["agency"]) agencyIdx = i;
-            if (col.roles["rating"]) ratingIdx = i;
+            if (col.roles["date"])    dateIdx    = i;
+            if (col.roles["agency"])  agencyIdx  = i;
+            if (col.roles["rating"])  ratingIdx  = i;
             if (col.roles["country"]) countryIdx = i;
         });
 
@@ -200,27 +200,22 @@ export class Visual implements IVisual {
             return [];
         }
 
+        const dateFmt = (this.settings.xAxis.dateFormat.value as any)?.value ?? "dd/mm/yyyy";
+
+        // Rastrear el ultimo rating visto por clave (agency + country)
+        const lastState = new Map<string, number>();
         const points: RatingPoint[] = [];
 
         table.rows.forEach(row => {
-            const rawDate = row[dateIdx];
-            const agency = String(row[agencyIdx] ?? "").trim();
-            const ratingTxt = String(row[ratingIdx] ?? "").trim();
-            // País: vacío si no se arrastra el campo
-            const country = countryIdx !== -1 ? String(row[countryIdx] ?? "").trim() : "";
+            const rawDate   = row[dateIdx];
+            const agency    = String(row[agencyIdx]  ?? "").trim();
+            const ratingTxt = String(row[ratingIdx]  ?? "").trim();
+            const country   = countryIdx !== -1 ? String(row[countryIdx] ?? "").trim() : "";
 
             if (!rawDate || !agency || !ratingTxt) return;
 
-            let date: Date;
-            if (rawDate instanceof Date) {
-                date = rawDate;
-            } else {
-                date = new Date(String(rawDate));
-            }
+            const date: Date = rawDate instanceof Date ? rawDate : new Date(String(rawDate));
             if (isNaN(date.getTime())) return;
-
-            const dateFmt = (this.settings.xAxis.dateFormat.value as any)?.value ?? "dd/mm/yyyy";
-            const dateLabel = this.formatDate(date, dateFmt, this.host.locale);
 
             const ratingNum = RATING_SCALE[ratingTxt];
             if (ratingNum === undefined) {
@@ -228,11 +223,32 @@ export class Visual implements IVisual {
                 return;
             }
 
-            points.push({ date, dateLabel, ratingText: ratingTxt, ratingNum, agency, country });
+            const stateKey = `${agency}||${country}`;
+            const prev     = lastState.get(stateKey);
+
+            // Ultimo dia calendario del mes
+            const isLastDayOfMonth =
+                date.getDate() === new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+
+            // Emitir si: primer punto | rating cambio | cierre de mes
+            if (prev === undefined || prev !== ratingNum || isLastDayOfMonth) {
+                points.push({
+                    date,
+                    dateLabel:  this.formatDate(date, dateFmt, this.host.locale),
+                    ratingText: this.toFitch(ratingTxt),
+                    ratingNum,
+                    agency,
+                    country
+                });
+                lastState.set(stateKey, ratingNum);
+            }
         });
 
+        // Ordenar cronologicamente (Power BI no garantiza orden)
+        points.sort((a, b) => a.date.getTime() - b.date.getTime());
         return points;
     }
+
 
     // ── Agrupar por serie ─────────────────────────────────────────────────────
     // Sin campo País → una línea por agencia (comportamiento original)
@@ -322,6 +338,14 @@ export class Visual implements IVisual {
         return series;
     }
 
+    // ── Convierte cualquier notación de rating (Fitch o Moody's) a nomenclatura Fitch / S&P
+    // Ej: "Aaa" → "AAA", "Baa1" → "BBB+", "AA+" → "AA+" (ya está bien)
+    private toFitch(ratingText: string): string {
+        const num = RATING_SCALE[ratingText];
+        if (num === undefined) return ratingText;
+        return RATING_LABEL[num]?.split(" (")[0].trim() ?? ratingText;
+    }
+
     // ── Agrega series diarias → puntos mensuales optimizados ─────────────────
     // monthlySeries : un punto por mes SOLO si el rating final cambió respecto al mes anterior
     // monthSummaryLookup : resumen liviano (inicial/final/promedio/cambios) para el tooltip
@@ -362,21 +386,21 @@ export class Visual implements IVisual {
                 for (let i = 1; i < pts.length; i++) {
                     if (pts[i].ratingNum !== pts[i - 1].ratingNum) {
                         changeEvents.push({
-                            dateLabel: pts[i].dateLabel,
-                            ratingText: pts[i].ratingText,
+                            dateLabel:  pts[i].dateLabel,
+                            ratingText: this.toFitch(pts[i].ratingText),
                             dir: pts[i].ratingNum < pts[i - 1].ratingNum ? "up" : "down"
                         });
                     }
                 }
 
                 serieMap.set(key, {
-                    monthKey: key,
-                    initialRating: initialPt.ratingText,
-                    initialNum: initialPt.ratingNum,
-                    finalRating: finalPt.ratingText,
-                    finalNum: finalPt.ratingNum,
+                    monthKey:      key,
+                    initialRating: this.toFitch(initialPt.ratingText),
+                    initialNum:    initialPt.ratingNum,
+                    finalRating:   this.toFitch(finalPt.ratingText),
+                    finalNum:      finalPt.ratingNum,
                     avgNum,
-                    avgRating,
+                    avgRating:     RATING_LABEL[avgNum]?.split(" (")[0].trim() ?? String(avgNum),
                     changeEvents
                 });
 
@@ -748,30 +772,26 @@ export class Visual implements IVisual {
                     html += `<span style="font-size:${xFs}px;color:#444">${monthlyRating}</span>`;
                     html += `</div>`;
 
-                    if (summary) {
-                        html += `<div class="rc-tt-daily" style="font-size:${sFs}px">`;
-                        // Inicial y final solo si difieren
-                        if (summary.initialRating !== summary.finalRating) {
-                            html += `<div class="rc-tt-daily-row"><span style="color:#aaa">Inicio</span><span>${summary.initialRating}</span></div>`;
-                            html += `<div class="rc-tt-daily-row"><span style="color:#aaa">Fin&nbsp;&nbsp;&nbsp;</span><span>${summary.finalRating}</span></div>`;
-                        }
-                        // Promedio del mes
-                        html += `<div class="rc-tt-daily-row"><span style="color:#aaa">Prom.&nbsp;</span><span>${summary.avgRating}</span></div>`;
-                        // Días con cambio dentro del mes
-                        if (summary.changeEvents.length > 0) {
-                            html += `<div style="margin-top:3px;color:#bbb;font-size:${Math.max(8, sFs - 1)}px">Cambios del mes:</div>`;
-                            summary.changeEvents.forEach(ev => {
-                                const arrow = ev.dir === "up" ? "&#8593;" : "&#8595;";
-                                const clr = ev.dir === "up" ? "#1e7e34" : "#c0392b";
-                                html += `<div class="rc-tt-daily-row">`;
-                                html += `<span style="color:#999">${ev.dateLabel}</span>`;
-                                html += `<span style="color:${clr}">${arrow} ${ev.ratingText}</span>`;
-                                html += `</div>`;
-                            });
-                        }
-                        html += `</div>`;
-                    }
-                    html += `</div>`;
+                    // if (summary) {
+                    //     const sFs = Math.max(9, xFs - 1);
+                    //     html += `<div class="rc-tt-daily" style="font-size:${sFs}px">`;
+                    //     // Promedio del mes
+                    //     // html += `<div class="rc-tt-daily-row"><span style="color:#aaa">Prom.&nbsp;</span><span>${summary.avgRating}</span></div>`;
+                    //     // Cambios dentro del mes
+                    //     if (summary.changeEvents.length > 0) {
+                    //         html += `<div style="margin-top:3px;color:#bbb;font-size:${Math.max(8, sFs - 1)}px">Cambios:</div>`;
+                    //         summary.changeEvents.forEach(ev => {
+                    //             const arrow = ev.dir === "up" ? "&#8593;" : "&#8595;";
+                    //             const clr   = ev.dir === "up" ? "#1e7e34" : "#c0392b";
+                    //             html += `<div class="rc-tt-daily-row">`;
+                    //             html += `<span style="color:#999">${ev.dateLabel}</span>`;
+                    //             html += `<span style="color:${clr}">${arrow} ${ev.ratingText}</span>`;
+                    //             html += `</div>`;
+                    //         });
+                    //     }
+                    //     html += `</div>`;
+                    // }
+                    // html += `</div>`;
                 });
 
                 tooltipDiv.html(html);
