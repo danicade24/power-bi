@@ -70,12 +70,25 @@ interface AgencySeries {
     color: string;
 }
 
+// Resumen mensual — usado en el tooltip (1 objeto por mes por serie)
+interface MonthSummary {
+    monthKey: string;        // "YYYY-MM"
+    initialRating: string;        // rating del primer día del mes
+    initialNum: number;
+    finalRating: string;        // rating del último día del mes
+    finalNum: number;
+    avgNum: number;        // promedio redondeado del mes
+    avgRating: string;
+    // Solo días donde el rating cambió respecto al anterior dentro del mes
+    changeEvents: Array<{ dateLabel: string; ratingText: string; dir: "up" | "down" }>;
+}
+
 // Paleta de 20 colores bien diferenciados (Tableau10 + Paired + extras)
 const BASE_COLORS = [
-    "#4e79a7","#f28e2b","#e15759","#76b7b2","#59a14f",
-    "#edc948","#b07aa1","#ff9da7","#9c755f","#bab0ac",
-    "#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd",
-    "#8c564b","#e377c2","#7f7f7f","#bcbd22","#17becf"
+    "#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f",
+    "#edc948", "#b07aa1", "#ff9da7", "#9c755f", "#bab0ac",
+    "#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+    "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"
 ];
 
 /** Genera un color para el índice i, bien diferenciado aunque haya muchas series */
@@ -116,8 +129,9 @@ export class Visual implements IVisual {
         this.svg.selectAll("*").remove();
         this.mainG = this.svg.append("g");
 
-        // Limpiar leyenda HTML previa
+        // Limpiar leyenda HTML previa y tooltip HTML previo
         d3.select(this.container).selectAll(".legend-scroll-wrapper").remove();
+        d3.select(this.container).selectAll(".rc-tooltip").remove();
 
         this.settings = this.formattingSettingsService.populateFormattingSettingsModel(
             VisualSettings, options.dataViews?.[0]
@@ -308,7 +322,86 @@ export class Visual implements IVisual {
         return series;
     }
 
-    // ── FIX: formateador de fecha — usa el texto original del dataset ─────────
+    // ── Agrega series diarias → puntos mensuales optimizados ─────────────────
+    // monthlySeries : un punto por mes SOLO si el rating final cambió respecto al mes anterior
+    // monthSummaryLookup : resumen liviano (inicial/final/promedio/cambios) para el tooltip
+    private aggregateByMonth(dailySeries: AgencySeries[]): {
+        monthlySeries: AgencySeries[];
+        monthSummaryLookup: Map<string, Map<string, MonthSummary>>;
+    } {
+        const monthlySeries: AgencySeries[] = [];
+        const monthSummaryLookup = new Map<string, Map<string, MonthSummary>>();
+        const dateFmt = (this.settings.xAxis.dateFormat.value as any)?.value ?? "mm/yyyy";
+
+        dailySeries.forEach(serie => {
+            // Agrupar por clave "YYYY-MM"
+            const byMonth = new Map<string, RatingPoint[]>();
+            serie.points.forEach(p => {
+                const key = `${p.date.getFullYear()}-${String(p.date.getMonth() + 1).padStart(2, "0")}`;
+                if (!byMonth.has(key)) byMonth.set(key, []);
+                byMonth.get(key)!.push(p);
+            });
+
+            const serieMap = new Map<string, MonthSummary>();
+            const monthlyPoints: RatingPoint[] = [];
+            let prevFinalNum = -1;
+
+            // Procesar meses en orden cronológico
+            Array.from(byMonth.keys()).sort().forEach(key => {
+                const pts = byMonth.get(key)!.sort((a, b) => a.date.getTime() - b.date.getTime());
+                const [yearStr, monthStr] = key.split("-");
+                const firstOfMonth = new Date(Number(yearStr), Number(monthStr) - 1, 1);
+
+                const initialPt = pts[0];
+                const finalPt = pts[pts.length - 1];
+                const avgNum = Math.round(pts.reduce((a, p) => a + p.ratingNum, 0) / pts.length);
+                const avgRating = Object.entries(RATING_SCALE).find(([, v]) => v === avgNum)?.[0] ?? String(avgNum);
+
+                // Solo días donde el rating cambió dentro del mes
+                const changeEvents: MonthSummary["changeEvents"] = [];
+                for (let i = 1; i < pts.length; i++) {
+                    if (pts[i].ratingNum !== pts[i - 1].ratingNum) {
+                        changeEvents.push({
+                            dateLabel: pts[i].dateLabel,
+                            ratingText: pts[i].ratingText,
+                            dir: pts[i].ratingNum < pts[i - 1].ratingNum ? "up" : "down"
+                        });
+                    }
+                }
+
+                serieMap.set(key, {
+                    monthKey: key,
+                    initialRating: initialPt.ratingText,
+                    initialNum: initialPt.ratingNum,
+                    finalRating: finalPt.ratingText,
+                    finalNum: finalPt.ratingNum,
+                    avgNum,
+                    avgRating,
+                    changeEvents
+                });
+
+                // Agregar punto a la línea solo si el rating final cambió
+                if (finalPt.ratingNum !== prevFinalNum) {
+                    monthlyPoints.push({
+                        date: firstOfMonth,
+                        dateLabel: this.formatDate(firstOfMonth, dateFmt, this.host.locale),
+                        ratingText: finalPt.ratingText,
+                        ratingNum: finalPt.ratingNum,
+                        agency: finalPt.agency,
+                        country: finalPt.country
+                    });
+                }
+                prevFinalNum = finalPt.ratingNum;
+            });
+
+            monthSummaryLookup.set(serie.name, serieMap);
+            monthlyPoints.sort((a, b) => a.date.getTime() - b.date.getTime());
+            monthlySeries.push({ name: serie.name, points: monthlyPoints, color: serie.color });
+        });
+
+        return { monthlySeries, monthSummaryLookup };
+    }
+
     // ── FIX: formateador de fecha localizado (vuelve a 'ene 2025') ─────────
     private formatDate(d: Date, fmt: string, locale: string = "es-ES"): string {
         if (fmt === "yyyy") return d.toLocaleDateString(locale, { year: 'numeric' });
@@ -340,7 +433,10 @@ export class Visual implements IVisual {
         const showGSep = s.ratingGroups.showGroupSeparators.value as boolean;
         const groups = s.ratingGroups.getGroups();
 
-        const series = this.groupByAgency(points);
+        // Series diarias (agrupadas por agencia/país) — usadas en tooltip
+        const dailySeries = this.groupByAgency(points);
+        // Series mensuales (promedio por mes) — usadas para dibujar la línea
+        const { monthlySeries, monthSummaryLookup } = this.aggregateByMonth(dailySeries);
 
         const allNums = points.map(p => p.ratingNum);
         const dataYMin = Math.max(Y_MIN, Math.min(...allNums) - 1);
@@ -511,30 +607,20 @@ export class Visual implements IVisual {
             .attr("dx", "0")
             .attr("dy", "1em");
 
-        // Series
-        series.forEach(serie => {
+        // ── Series — dibujadas desde puntos MENSUALES (promediados) ──────────
+        monthlySeries.forEach(serie => {
             const validPoints = serie.points.filter(
                 p => p.ratingNum >= dataYMin && p.ratingNum <= dataYMax
             );
             if (validPoints.length === 0) return;
 
-            // Extender la línea horizontalmente hacia ambos extremos del gráfico
+            // Extender la línea hasta los extremos globales del dataset
             const pathPoints = [...validPoints];
-            
-            // Extender hacia atrás (hasta el mínimo global)
             if (finalMinDate && pathPoints[0].date.getTime() > finalMinDate.getTime()) {
-                pathPoints.unshift({
-                    ...pathPoints[0],
-                    date: finalMinDate
-                });
+                pathPoints.unshift({ ...pathPoints[0], date: finalMinDate });
             }
-
-            // Extender hacia adelante (hasta el máximo global)
             if (finalMaxDate && pathPoints[pathPoints.length - 1].date.getTime() < finalMaxDate.getTime()) {
-                pathPoints.push({
-                    ...pathPoints[pathPoints.length - 1],
-                    date: finalMaxDate
-                });
+                pathPoints.push({ ...pathPoints[pathPoints.length - 1], date: finalMaxDate });
             }
 
             const lineGen = d3.line<RatingPoint>()
@@ -550,6 +636,7 @@ export class Visual implements IVisual {
                 .attr("stroke-width", lineW)
                 .attr("d", lineGen);
 
+            // Puntos en posición mensual (representan el promedio del mes)
             if (showDots) {
                 g.selectAll(null)
                     .data(validPoints)
@@ -561,49 +648,47 @@ export class Visual implements IVisual {
                     .attr("r", dotR)
                     .attr("fill", serie.color)
                     .append("title")
-                    // FIX: usa dateLabel (texto original) en el tooltip
                     .text(p => `${serie.name}: ${p.ratingText} — ${p.dateLabel}`);
             }
         });
 
         // ── LÍNEA GUÍA VERTICAL (crosshair) ───────────────────────────────────
-        // Overlay transparente que captura el mouse sobre toda el área del gráfico
         const crosshairG = g.append("g").style("pointer-events", "none");
-
-        // Línea vertical — continua (sin dasharray)
         const crosshairLine = crosshairG.append("line")
             .attr("y1", 0).attr("y2", H)
             .attr("stroke", "#666666")
             .attr("stroke-width", 1)
             .style("opacity", 0);
 
-        // Caja del tooltip
-        const tooltipPad = 8;
-        const tooltipG = crosshairG.append("g").style("opacity", 0);
-        const tooltipRect = tooltipG.append("rect")
-            .attr("fill", "white")
-            .attr("stroke", "#cccccc")
-            .attr("stroke-width", 1)
-            .attr("rx", 4);
-        const tooltipDate = tooltipG.append("text")
-            .attr("font-size", `${xFs + 1}px`)
-            .attr("font-weight", "bold")
-            .attr("fill", "#333333");
-        // Filas de series (máx 10)
-        const tooltipRows: d3.Selection<SVGTextElement, unknown, null, undefined>[] = [];
-        const tooltipDots: d3.Selection<SVGCircleElement, unknown, null, undefined>[] = [];
-        series.forEach((serie, i) => {
-            tooltipDots.push(
-                tooltipG.append("circle").attr("r", 4).attr("fill", serie.color)
-            );
-            tooltipRows.push(
-                tooltipG.append("text")
-                    .attr("font-size", `${xFs}px`)
-                    .attr("fill", "#333333")
-            );
-        });
+        // ── TOOLTIP HTML — dinámico, soporta detalle diario por mes ───────────
+        // Inyectar CSS del tooltip una sola vez
+        const ttStyleId = "rc-tooltip-style";
+        if (!document.getElementById(ttStyleId)) {
+            const ttStyle = document.createElement("style");
+            ttStyle.id = ttStyleId;
+            ttStyle.textContent = [
+                ".rc-tooltip { position:absolute; pointer-events:none; background:#fff;",
+                "  border:1px solid #d0d0d0; border-radius:5px; padding:8px 10px;",
+                "  box-shadow:0 2px 8px rgba(0,0,0,0.13); display:none;",
+                "  max-height:260px; overflow-y:auto; z-index:200;",
+                "  font-family:'Segoe UI',sans-serif; }",
+                ".rc-tt-header { font-weight:700; margin-bottom:5px; color:#222; }",
+                ".rc-tt-serie { margin-bottom:4px; }",
+                ".rc-tt-serie-row { display:flex; align-items:center; gap:5px; }",
+                ".rc-tt-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }",
+                ".rc-tt-name { font-weight:600; }",
+                ".rc-tt-daily { margin-left:13px; margin-top:2px; color:#666; }",
+                ".rc-tt-daily-row { display:flex; gap:6px; }",
+            ].join(" ");
+            document.head.appendChild(ttStyle);
+        }
 
-        // Área invisible de captura de eventos
+        const tooltipDiv = d3.select(this.container)
+            .append("div")
+            .classed("rc-tooltip", true)
+            .style("font-size", `${xFs}px`);
+
+        // ── Área invisible de captura de eventos ──────────────────────────────
         g.append("rect")
             .attr("width", W).attr("height", H)
             .attr("fill", "transparent")
@@ -611,94 +696,109 @@ export class Visual implements IVisual {
                 const [mx, my] = d3.pointer(event);
                 const hoverDate = xScale.invert(mx);
 
-                // Recopilar TODAS las series dentro del umbral de proximidad (30px)
-                // Si coinciden varias (mismo rating), se listan todas; si solo hay una, se muestra una.
-                const rows: { name: string; color: string; ratingText: string; ratingNum: number }[] = [];
+                // Clave del mes bajo el cursor
+                const hYear = hoverDate.getFullYear();
+                const hMonth = hoverDate.getMonth(); // 0-indexed
+                const monthKey = `${hYear}-${String(hMonth + 1).padStart(2, "0")}`;
 
-                series.forEach(serie => {
+                // Recopilar series mensuales dentro del umbral Y (10px)
+                interface NearRow {
+                    serie: AgencySeries;
+                    monthlyRating: string;
+                    summary: MonthSummary | undefined;
+                }
+                const nearRows: NearRow[] = [];
+
+                monthlySeries.forEach(serie => {
                     const valid = serie.points.filter(
                         p => p.ratingNum >= dataYMin && p.ratingNum <= dataYMax && p.date <= hoverDate
                     );
                     if (valid.length === 0) return;
                     const last = valid[valid.length - 1];
-                    const serieY = yScale(last.ratingNum);
-                    const dist = Math.abs(my - serieY);
-                    if (dist > 10) return;   // fuera del umbral → ignorar
+                    const dist = Math.abs(my - yScale(last.ratingNum));
+                    if (dist > 10) return;
+
+                    // Clave del mes activo = mes del último punto mensual antes del cursor
+                    const activeKey = `${last.date.getFullYear()}-${String(last.date.getMonth() + 1).padStart(2, "0")}`;
+                    const summary = monthSummaryLookup.get(serie.name)?.get(activeKey);
 
                     const label = RATING_LABEL[last.ratingNum] ?? last.ratingText;
-                    const spFitch = label.split(" (")[0].trim();
-                    rows.push({
-                        name: serie.name,
-                        color: serie.color,
-                        ratingText: spFitch,
-                        ratingNum: last.ratingNum
-                    });
+                    nearRows.push({ serie, monthlyRating: label.split(" (")[0].trim(), summary });
                 });
 
-                if (rows.length === 0) {
+                if (nearRows.length === 0) {
                     crosshairLine.style("opacity", 0);
-                    tooltipG.style("opacity", 0);
+                    tooltipDiv.style("display", "none");
                     return;
                 }
 
-                // Mostrar línea guía
-                crosshairLine
-                    .attr("x1", mx).attr("x2", mx)
-                    .style("opacity", 1);
+                crosshairLine.attr("x1", mx).attr("x2", mx).style("opacity", 1);
 
-                // Etiqueta de fecha — usa formatDate con el formato configurado
-                const dateStr = (d3 as any).timeFormat("%d/%m/%Y")(hoverDate);
+                // Encabezado: mes bajo el cursor
+                const monthLabel = hoverDate.toLocaleDateString("es-ES", { month: "long", year: "numeric" });
+                let html = `<div class="rc-tt-header" style="font-size:${xFs + 1}px">${monthLabel}</div>`;
 
-                // Construir tooltip
-                const lineH = xFs + 6;
-                const totalH = lineH + rows.length * lineH + tooltipPad;
-                let maxW = dateStr.length * (xFs * 0.62) + tooltipPad * 2;
+                nearRows.forEach(({ serie, monthlyRating, summary }) => {
+                    const sFs = Math.max(9, xFs - 1);
+                    html += `<div class="rc-tt-serie">`;
+                    // Fila principal: color + nombre + rating final del mes
+                    html += `<div class="rc-tt-serie-row">`;
+                    html += `<span class="rc-tt-dot" style="background:${serie.color}"></span>`;
+                    html += `<span class="rc-tt-name" style="font-size:${xFs}px">${serie.name}</span>`;
+                    html += `<span style="font-size:${xFs}px;color:#444">${monthlyRating}</span>`;
+                    html += `</div>`;
 
-                tooltipDate.text(dateStr);
-
-                rows.forEach((row, ri) => {
-                    const label = `${row.name}: ${row.ratingText}`;
-                    const tw = label.length * (xFs * 0.58) + tooltipPad * 2 + 14;
-                    if (tw > maxW) maxW = tw;
-
-                    tooltipDots[ri]
-                        .attr("cx", tooltipPad + 4)
-                        .attr("cy", lineH + ri * lineH + lineH * 0.3)
-                        .attr("fill", row.color);   // ← sincronizar con el color real de la serie
-
-                    tooltipRows[ri]
-                        .attr("x", tooltipPad + 14)
-                        .attr("y", lineH + ri * lineH + lineH * 0.65)
-                        .text(label);
+                    if (summary) {
+                        html += `<div class="rc-tt-daily" style="font-size:${sFs}px">`;
+                        // Inicial y final solo si difieren
+                        if (summary.initialRating !== summary.finalRating) {
+                            html += `<div class="rc-tt-daily-row"><span style="color:#aaa">Inicio</span><span>${summary.initialRating}</span></div>`;
+                            html += `<div class="rc-tt-daily-row"><span style="color:#aaa">Fin&nbsp;&nbsp;&nbsp;</span><span>${summary.finalRating}</span></div>`;
+                        }
+                        // Promedio del mes
+                        html += `<div class="rc-tt-daily-row"><span style="color:#aaa">Prom.&nbsp;</span><span>${summary.avgRating}</span></div>`;
+                        // Días con cambio dentro del mes
+                        if (summary.changeEvents.length > 0) {
+                            html += `<div style="margin-top:3px;color:#bbb;font-size:${Math.max(8, sFs - 1)}px">Cambios del mes:</div>`;
+                            summary.changeEvents.forEach(ev => {
+                                const arrow = ev.dir === "up" ? "&#8593;" : "&#8595;";
+                                const clr = ev.dir === "up" ? "#1e7e34" : "#c0392b";
+                                html += `<div class="rc-tt-daily-row">`;
+                                html += `<span style="color:#999">${ev.dateLabel}</span>`;
+                                html += `<span style="color:${clr}">${arrow} ${ev.ratingText}</span>`;
+                                html += `</div>`;
+                            });
+                        }
+                        html += `</div>`;
+                    }
+                    html += `</div>`;
                 });
 
-                // Ocultar filas extra si hay menos series visibles
-                tooltipRows.forEach((row, ri) => row.style("opacity", ri < rows.length ? 1 : 0));
-                tooltipDots.forEach((dot, ri) => dot.style("opacity", ri < rows.length ? 1 : 0));
+                tooltipDiv.html(html);
 
-                tooltipDate
-                    .attr("x", tooltipPad)
-                    .attr("y", lineH * 0.8);
+                // Posicionar el div relativo al contenedor
+                const ttNode = tooltipDiv.node() as HTMLElement;
+                const tw = ttNode.offsetWidth || 160;
+                const th = ttNode.offsetHeight || 60;
+                let tx = mx + margin.left + 14;
+                if (tx + tw > viewWidth - 4) tx = mx + margin.left - tw - 10;
+                const ty = Math.max(margin.top,
+                    Math.min(viewHeight - th - 4, my + margin.top - th / 2));
 
-                tooltipRect
-                    .attr("width", maxW)
-                    .attr("height", totalH + tooltipPad);
-
-                // Posicionar tooltip — a la derecha del cursor, salvo que se salga
-                let tx = mx + 12;
-                if (tx + maxW > W) tx = mx - maxW - 8;
-                const ty = Math.max(0, Math.min(H - totalH - tooltipPad, H / 2 - totalH / 2));
-                tooltipG.attr("transform", `translate(${tx}, ${ty})`).style("opacity", 1);
+                tooltipDiv
+                    .style("left", `${tx}px`)
+                    .style("top", `${ty}px`)
+                    .style("display", "block");
             })
             .on("mouseleave", function () {
                 crosshairLine.style("opacity", 0);
-                tooltipG.style("opacity", 0);
+                tooltipDiv.style("display", "none");
             });
 
         // ── Leyenda HTML con flechas de navegación estilo Power BI ───────────
         if (showLeg) {
             const isRight = legPos === "right";
-            const isTop   = legPos === "top";
+            const isTop = legPos === "top";
 
             // CSS global — solo se inyecta una vez
             const styleId = "legend-arrow-style";
@@ -744,25 +844,25 @@ export class Visual implements IVisual {
                     .style("padding", "2px 4px");
 
                 // Items (sin flechas en modo vertical)
-                series.forEach(serie => {
+                monthlySeries.forEach(serie => {
                     const item = legDiv.append("div")
                         .style("display", "flex")
                         .style("align-items", "center")
                         .style("gap", "5px")
                         .style("white-space", "nowrap")
                         .style("flex-shrink", "0");
-                    const svgEl = item.append("svg").attr("width","10").attr("height","10").style("flex-shrink","0");
-                    svgEl.append("circle").attr("cx","5").attr("cy","5").attr("r","5").attr("fill", serie.color);
-                    item.append("span").style("font-size",`${xFs}px`).style("color",xFc).text(serie.name);
+                    const svgEl = item.append("svg").attr("width", "10").attr("height", "10").style("flex-shrink", "0");
+                    svgEl.append("circle").attr("cx", "5").attr("cy", "5").attr("r", "5").attr("fill", serie.color);
+                    item.append("span").style("font-size", `${xFs}px`).style("color", xFc).text(serie.name);
                 });
 
             } else {
                 // Leyenda horizontal — con flechas ◀ ▶
                 const topPx = isTop ? "0" : `${viewHeight - legH}px`;
                 legDiv
-                    .style("left",   `${margin.left}px`)
-                    .style("right",  `${margin.right}px`)
-                    .style("top",    topPx)
+                    .style("left", `${margin.left}px`)
+                    .style("right", `${margin.right}px`)
+                    .style("top", topPx)
                     .style("height", `${legH}px`)
                     .style("flex-direction", "row")
                     .style("padding", "2px 0");
@@ -784,28 +884,28 @@ export class Visual implements IVisual {
                     .text("\u25B6");
 
                 // Poblar items
-                series.forEach(serie => {
+                monthlySeries.forEach(serie => {
                     const item = itemsDiv.append("div")
                         .style("display", "inline-flex")
                         .style("align-items", "center")
                         .style("gap", "5px")
                         .style("white-space", "nowrap")
                         .style("flex-shrink", "0");
-                    const svgEl = item.append("svg").attr("width","10").attr("height","10").style("flex-shrink","0");
-                    svgEl.append("circle").attr("cx","5").attr("cy","5").attr("r","5").attr("fill", serie.color);
-                    item.append("span").style("font-size",`${xFs}px`).style("color",xFc).text(serie.name);
+                    const svgEl = item.append("svg").attr("width", "10").attr("height", "10").style("flex-shrink", "0");
+                    svgEl.append("circle").attr("cx", "5").attr("cy", "5").attr("r", "5").attr("fill", serie.color);
+                    item.append("span").style("font-size", `${xFs}px`).style("color", xFc).text(serie.name);
                 });
 
                 // Lógica de flechas — se ejecuta después de que el DOM esté pintado
-                const itemsEl  = itemsDiv.node() as HTMLElement;
-                const btnLEl   = btnL.node()    as HTMLElement;
-                const btnREl   = btnR.node()    as HTMLElement;
+                const itemsEl = itemsDiv.node() as HTMLElement;
+                const btnLEl = btnL.node() as HTMLElement;
+                const btnREl = btnR.node() as HTMLElement;
                 const scrollAmt = 120;
 
                 const updateArrows = () => {
                     const hasOverflow = itemsEl.scrollWidth > itemsEl.clientWidth + 1;
-                    const atStart     = itemsEl.scrollLeft <= 0;
-                    const atEnd       = itemsEl.scrollLeft + itemsEl.clientWidth >= itemsEl.scrollWidth - 1;
+                    const atStart = itemsEl.scrollLeft <= 0;
+                    const atEnd = itemsEl.scrollLeft + itemsEl.clientWidth >= itemsEl.scrollWidth - 1;
                     btnLEl.classList.toggle("visible", hasOverflow && !atStart);
                     btnREl.classList.toggle("visible", hasOverflow && !atEnd);
                 };

@@ -50,7 +50,7 @@
             { "for": { "in": "rating"  } },
             { "for": { "in": "country" } }
           ],
-          "dataReductionAlgorithm": { "window": { "count": 25000 } }
+          "dataReductionAlgorithm": { "window": { "count": 5000 } }
         }
       }
     }

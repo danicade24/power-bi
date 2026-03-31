@@ -72,10 +72,10 @@ export class RatingGroupsCard extends FormattingSettingsCard {
 // ── Series ────────────────────────────────────────────────────────────────────
 export class SeriesSettingsCard extends FormattingSettingsCard {
     lineWidth  = new formattingSettings.NumUpDown({
-        name: "lineWidth", displayName: "Grosor de línea (px)", value: 3,
+        name: "lineWidth", displayName: "Grosor de línea (px)", value: 2,
         options: { minValue: { type: powerbi.visuals.ValidatorType.Min, value: 1 } }
     });
-    showDots   = new formattingSettings.ToggleSwitch({ name: "showDots",   displayName: "Mostrar puntos (vértices)",       value: true });
+    showDots   = new formattingSettings.ToggleSwitch({ name: "showDots",   displayName: "Mostrar puntos (vértices)",       value: false });
     dotRadius  = new formattingSettings.NumUpDown({
         name: "dotRadius", displayName: "Radio de nodos", value: 4,
         options: { minValue: { type: powerbi.visuals.ValidatorType.Min, value: 1 } }
