@@ -1,4 +1,4 @@
-﻿"use strict";
+"use strict";
 
 import powerbi from "powerbi-visuals-api";
 import { FormattingSettingsService } from "powerbi-visuals-utils-formattingmodel";
@@ -65,7 +65,8 @@ interface RatingPoint {
 }
 
 interface AgencySeries {
-    name: string;
+    name: string;          // identificador único interno (pj: Colombia - Fitch)
+    displayName: string;   // texto para la leyenda (pj: Fitch)
     points: RatingPoint[];
     color: string;
 }
@@ -250,12 +251,15 @@ export class Visual implements IVisual {
     }
 
 
-    // ── Agrupar por serie ─────────────────────────────────────────────────────
-    // Sin campo País → una línea por agencia (comportamiento original)
-    // Con campo País → una línea por país; si hay múltiples agencias se promedia
-    //                  el ratingNum por (país, fecha) y se redondea al entero más cercano
+    // ── Jerarquía de Leyenda Dinámica ─────────────────────────────────────────
     private groupByAgency(points: RatingPoint[]): AgencySeries[] {
-        const hasCountry = points.some(p => p.country !== "");
+        const uniqueCountries = new Set<string>();
+        points.forEach(p => { if (p.country) uniqueCountries.add(p.country); });
+
+        const hasAgency = points.some(p => p.agency !== "");
+        // Si hay solo 1 país y tiene agencia -> Modo Detalle (Agencias separadas)
+        // Sino -> Modo Resumen (Líneas por país, promediando agencias)
+        const isDetailMode = uniqueCountries.size === 1 && hasAgency;
 
         const colorProps = [
             this.settings.seriesColors.color1, this.settings.seriesColors.color2,
@@ -265,47 +269,70 @@ export class Visual implements IVisual {
             this.settings.seriesColors.color9, this.settings.seriesColors.color10
         ];
 
-        let seriesMap: Map<string, RatingPoint[]>;
+        const seriesMap = new Map<string, RatingPoint[]>();
+        const nameMap = new Map<string, string>();
 
-        if (!hasCountry) {
-            // ── Modo original: agrupar por agencia ──────────────────────────
-            seriesMap = new Map<string, RatingPoint[]>();
+        if (isDetailMode) {
+            // ── Modo Leyenda (Detalle por Agencia) ──────────────────────────
+            const byDateKey = new Map<string, RatingPoint[]>();
             points.forEach(p => {
-                if (!seriesMap.has(p.agency)) seriesMap.set(p.agency, []);
-                seriesMap.get(p.agency)!.push(p);
+                const compositeKey = p.country ? `${p.country} - ${p.agency}` : p.agency;
+                const timeKey = `${compositeKey}||${p.date.getTime()}`;
+                if (!byDateKey.has(timeKey)) byDateKey.set(timeKey, []);
+                byDateKey.get(timeKey)!.push(p);
+            });
+
+            byDateKey.forEach((pts, timeKey) => {
+                const compositeKey = timeKey.split("||")[0];
+                if (!seriesMap.has(compositeKey)) seriesMap.set(compositeKey, []);
+                nameMap.set(compositeKey, pts[0].agency);
+
+                // Promedio Inteligente
+                if (pts.length > 1) {
+                    const avgNum = Math.round(pts.reduce((sum, p) => sum + p.ratingNum, 0) / pts.length);
+                    const avgRatingText = Object.entries(RATING_SCALE).find(([, v]) => v === avgNum)?.[0] ?? String(avgNum);
+                    seriesMap.get(compositeKey)!.push({
+                        ...pts[0],
+                        ratingNum: avgNum,
+                        ratingText: avgRatingText,
+                        agency: pts[0].agency
+                    });
+                } else {
+                    seriesMap.get(compositeKey)!.push(pts[0]);
+                }
             });
 
         } else {
-            // ── Modo país: agrupar por país, promediar agencias ─────────────
-            // Paso 1: agrupar por (país, fecha) → lista de ratingNum de cada agencia
-            const byCountryDate = new Map<string, { date: Date; dateLabel: string; nums: number[] }>();
-
+            // ── Modo País (Resumen por País) ─────────────────────────────
+            const byCountryDate = new Map<string, RatingPoint[]>();
             points.forEach(p => {
-                const key = `${p.country}||${p.date.getTime()}`;
-                if (!byCountryDate.has(key)) {
-                    byCountryDate.set(key, { date: p.date, dateLabel: p.dateLabel, nums: [] });
+                const countryKey = p.country || (p.agency || "Global");
+                const key = `${countryKey}||${p.date.getTime()}`;
+                if (!byCountryDate.has(key)) byCountryDate.set(key, []);
+                byCountryDate.get(key)!.push(p);
+            });
+
+            byCountryDate.forEach((pts, timeKey) => {
+                const country = timeKey.split("||")[0];
+                const compositeKey = `${country} - (promedio)`;
+
+                if (!seriesMap.has(compositeKey)) seriesMap.set(compositeKey, []);
+                nameMap.set(compositeKey, country);
+
+                if (pts.length > 1) {
+                    const avgNum = Math.round(pts.reduce((sum, p) => sum + p.ratingNum, 0) / pts.length);
+                    const avgRatingText = Object.entries(RATING_SCALE).find(([, v]) => v === avgNum)?.[0] ?? String(avgNum);
+                    seriesMap.get(compositeKey)!.push({
+                        ...pts[0],
+                        ratingNum: avgNum,
+                        ratingText: avgRatingText,
+                        agency: "(promedio)",
+                        country
+                    });
+                } else {
+                    seriesMap.get(compositeKey)!.push({ ...pts[0], agency: "(promedio)", country });
                 }
-                byCountryDate.get(key)!.nums.push(p.ratingNum);
             });
-
-            // Paso 2: calcular promedio redondeado y construir RatingPoint por país
-            const byCountry = new Map<string, RatingPoint[]>();
-
-            byCountryDate.forEach(({ date, dateLabel, nums }, key) => {
-                const country = key.split("||")[0];
-                const avgNum = Math.round(nums.reduce((a, b) => a + b, 0) / nums.length);
-                // Buscar el texto del rating que corresponde al número promedio
-                const ratingText = Object.entries(RATING_SCALE).find(([, v]) => v === avgNum)?.[0] ?? String(avgNum);
-
-                if (!byCountry.has(country)) byCountry.set(country, []);
-                byCountry.get(country)!.push({
-                    date, dateLabel,
-                    ratingText, ratingNum: avgNum,
-                    agency: "(promedio)", country
-                });
-            });
-
-            seriesMap = byCountry;
         }
 
         // Asignar colores — la clave es el nombre de serie (agencia o país)
@@ -331,9 +358,9 @@ export class Visual implements IVisual {
         }
 
         const series: AgencySeries[] = [];
-        seriesMap.forEach((pts, name) => {
+        seriesMap.forEach((pts, key) => {
             pts.sort((a, b) => a.date.getTime() - b.date.getTime());
-            series.push({ name, points: pts, color: keyColors.get(name)! });
+            series.push({ name: key, displayName: nameMap.get(key)!, points: pts, color: keyColors.get(key)! });
         });
         return series;
     }
@@ -420,7 +447,7 @@ export class Visual implements IVisual {
 
             monthSummaryLookup.set(serie.name, serieMap);
             monthlyPoints.sort((a, b) => a.date.getTime() - b.date.getTime());
-            monthlySeries.push({ name: serie.name, points: monthlyPoints, color: serie.color });
+            monthlySeries.push({ name: serie.name, displayName: serie.displayName, points: monthlyPoints, color: serie.color });
         });
 
         return { monthlySeries, monthSummaryLookup };
@@ -444,13 +471,15 @@ export class Visual implements IVisual {
         const legPos = (s.series.legendPosition.value as any)?.value ?? "bottom";
         const dateFmt = (s.xAxis.dateFormat.value as any)?.value ?? "dd/mm/yyyy";
         const maxTicks = (s.xAxis.maxTicks.value as number) ?? 12;
-        const xFs = (s.xAxis.fontSize.value as number) ?? 10;
+        const scaleFactor = Math.max(0.6, Math.min(2.0, viewWidth / 800));
+
+        const xFs = ((s.xAxis.fontSize.value as number) ?? 10) * scaleFactor;
         const xFc = (s.xAxis.fontColor.value as any)?.value ?? "#555555";
-        const yFs = (s.yAxis.fontSize.value as number) ?? 10;
+        const yFs = ((s.yAxis.fontSize.value as number) ?? 10) * scaleFactor;
         const yFc = (s.yAxis.fontColor.value as any)?.value ?? "#000000";
         const yFcSec = (s.yAxis.secondaryFontColor.value as any)?.value ?? "#005bb5";
         const lblStyle = (s.yAxis.labelStyle.value as any)?.value ?? "Both";
-        const gFs = (s.yAxis.groupFontSize.value as number) ?? 10;
+        const gFs = ((s.yAxis.groupFontSize.value as number) ?? 10) * scaleFactor;
         const gFc = (s.yAxis.groupFontColor.value as any)?.value ?? "#888888";
         const showDotted = s.yAxis.showDottedLines.value as boolean;
         const showGLbls = s.ratingGroups.showGroupLabels.value as boolean;
@@ -768,7 +797,7 @@ export class Visual implements IVisual {
                     // Fila principal: color + nombre + rating final del mes
                     html += `<div class="rc-tt-serie-row">`;
                     html += `<span class="rc-tt-dot" style="background:${serie.color}"></span>`;
-                    html += `<span class="rc-tt-name" style="font-size:${xFs}px">${serie.name}</span>`;
+                    html += `<span class="rc-tt-name" style="font-size:${xFs}px">${serie.displayName}</span>`;
                     html += `<span style="font-size:${xFs}px;color:#444">${monthlyRating}</span>`;
                     html += `</div>`;
 
@@ -873,7 +902,7 @@ export class Visual implements IVisual {
                         .style("flex-shrink", "0");
                     const svgEl = item.append("svg").attr("width", "10").attr("height", "10").style("flex-shrink", "0");
                     svgEl.append("circle").attr("cx", "5").attr("cy", "5").attr("r", "5").attr("fill", serie.color);
-                    item.append("span").style("font-size", `${xFs}px`).style("color", xFc).text(serie.name);
+                    item.append("span").style("font-size", `${xFs}px`).style("color", xFc).text(serie.displayName);
                 });
 
             } else {
@@ -913,7 +942,7 @@ export class Visual implements IVisual {
                         .style("flex-shrink", "0");
                     const svgEl = item.append("svg").attr("width", "10").attr("height", "10").style("flex-shrink", "0");
                     svgEl.append("circle").attr("cx", "5").attr("cy", "5").attr("r", "5").attr("fill", serie.color);
-                    item.append("span").style("font-size", `${xFs}px`).style("color", xFc).text(serie.name);
+                    item.append("span").style("font-size", `${xFs}px`).style("color", xFc).text(serie.displayName);
                 });
 
                 // Lógica de flechas — se ejecuta después de que el DOM esté pintado
