@@ -237,11 +237,8 @@ export class SegmentColorsCard extends FormattingSettingsCard {
     }
 
     public getActiveColors(): (string | null)[] {
-        const count = Math.max(0, Math.min(20, this.numColors.value ?? 0));
         const allColors = [this.c1, this.c2, this.c3, this.c4, this.c5, this.c6, this.c7, this.c8, this.c9, this.c10, this.c11, this.c12, this.c13, this.c14, this.c15, this.c16, this.c17, this.c18, this.c19, this.c20];
-        return allColors
-            .slice(0, count)
-            .map(c => (c.value && c.value.value) ? c.value.value : null);
+        return allColors.map(c => (c.value && c.value.value) ? c.value.value : null);
     }
 }
 

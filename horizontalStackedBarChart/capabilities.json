@@ -48,7 +48,7 @@
     {
       "conditions": [
         {
-          "measure": { "min": 1, "max": 1 },
+          "measure": { "min": 0, "max": 1 },
           "target": { "min": 0, "max": 1 },
           "min": { "min": 0, "max": 1 },
           "max": { "min": 0, "max": 1 },
@@ -243,6 +243,36 @@
           "displayName": "Cursiva",
           "type": { "bool": true }
         }
+      }
+    },
+
+    "segmentColorsSettings": {
+      "displayName": "Sobrescribir Colores de Segmentos",
+      "properties": {
+        "numColors": {
+          "displayName": "Cantidad de colores manuales",
+          "type": { "numeric": true }
+        },
+        "c1": { "displayName": "Color 1", "type": { "fill": { "solid": { "color": true } } } },
+        "c2": { "displayName": "Color 2", "type": { "fill": { "solid": { "color": true } } } },
+        "c3": { "displayName": "Color 3", "type": { "fill": { "solid": { "color": true } } } },
+        "c4": { "displayName": "Color 4", "type": { "fill": { "solid": { "color": true } } } },
+        "c5": { "displayName": "Color 5", "type": { "fill": { "solid": { "color": true } } } },
+        "c6": { "displayName": "Color 6", "type": { "fill": { "solid": { "color": true } } } },
+        "c7": { "displayName": "Color 7", "type": { "fill": { "solid": { "color": true } } } },
+        "c8": { "displayName": "Color 8", "type": { "fill": { "solid": { "color": true } } } },
+        "c9": { "displayName": "Color 9", "type": { "fill": { "solid": { "color": true } } } },
+        "c10": { "displayName": "Color 10", "type": { "fill": { "solid": { "color": true } } } },
+        "c11": { "displayName": "Color 11", "type": { "fill": { "solid": { "color": true } } } },
+        "c12": { "displayName": "Color 12", "type": { "fill": { "solid": { "color": true } } } },
+        "c13": { "displayName": "Color 13", "type": { "fill": { "solid": { "color": true } } } },
+        "c14": { "displayName": "Color 14", "type": { "fill": { "solid": { "color": true } } } },
+        "c15": { "displayName": "Color 15", "type": { "fill": { "solid": { "color": true } } } },
+        "c16": { "displayName": "Color 16", "type": { "fill": { "solid": { "color": true } } } },
+        "c17": { "displayName": "Color 17", "type": { "fill": { "solid": { "color": true } } } },
+        "c18": { "displayName": "Color 18", "type": { "fill": { "solid": { "color": true } } } },
+        "c19": { "displayName": "Color 19", "type": { "fill": { "solid": { "color": true } } } },
+        "c20": { "displayName": "Color 20", "type": { "fill": { "solid": { "color": true } } } }
       }
     }
 

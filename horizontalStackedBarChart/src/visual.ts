@@ -246,13 +246,13 @@ export class Visual implements IVisual {
 
         // ── KPI Panel settings (portados desde gauge) ────────────────────────
         const kpi = s.kpiPanel;
-        const kpiFontFamily   = (kpi.fontFamily.value as string) || "Segoe UI";
-        const kpiFontWeight   = (kpi.bold.value as boolean)   ? "bold"   : "normal";
-        const kpiFontStyle    = (kpi.italic.value as boolean)  ? "italic" : "normal";
+        const kpiFontFamily = (kpi.fontFamily.value as string) || "Segoe UI";
+        const kpiFontWeight = (kpi.bold.value as boolean) ? "bold" : "normal";
+        const kpiFontStyle = (kpi.italic.value as boolean) ? "italic" : "normal";
         const kpiValueFontSize = (kpi.valueFontSize.value as number) ?? 16;
         const kpiLabelFontSize = (kpi.labelFontSize.value as number) ?? 10;
-        const kpiValueColor    = (kpi.valueColor.value as any)?.value ?? "#1a1a1a";
-        const kpiLabelColor    = (kpi.labelColor.value as any)?.value ?? "#777777";
+        const kpiValueColor = (kpi.valueColor.value as any)?.value ?? "#1a1a1a";
+        const kpiLabelColor = (kpi.labelColor.value as any)?.value ?? "#777777";
         // ────────────────────────────────────────────────────────────────────
 
         let dynamicMin = indicator.value;
@@ -316,7 +316,16 @@ export class Visual implements IVisual {
             && String(rawFormatText).trim() !== "null";
         const formatTextDisplay = hasFormatText ? String(rawFormatText) : "";
 
-        const leftPanelWidth = hasFormatText ? 75 : 0;
+        let leftPanelWidth = 0;
+        if (hasFormatText) {
+            const boldFactor = kpiFontWeight === "bold" ? 1.15 : 1.0;
+            const valueTextWidth = formatTextDisplay.length * kpiValueFontSize * 0.65 * boldFactor;
+            const labelTextWidth = "Objetivo".length * kpiLabelFontSize * 0.65 * boldFactor;
+            
+            // Ensure gap of 15px to the bar
+            leftPanelWidth = Math.max(valueTextWidth, labelTextWidth) + 15;
+            leftPanelWidth = Math.max(75, leftPanelWidth); // keep a minimum width
+        }
 
         const ascending = s.order.ascending.value as boolean;
         const segments = this.buildSegments(minVal, maxVal, ascending, globalResolvedThresholds);
@@ -357,8 +366,11 @@ export class Visual implements IVisual {
         // ── Panel KPI izquierdo (valor formateado + etiqueta "Objetivo") ───────
         // Usa KpiPanelCard: fontFamily, bold, italic, colores y tamaños propios.
         if (hasFormatText) {
+            const kpiHeight = kpiValueFontSize + kpiLabelFontSize + 4;
+            const kpiCenterOffset = (barH - kpiHeight) / 2;
+
             const kpiG = mainG.append("g")
-                .attr("transform", `translate(0, ${currentY + barOffsetY})`);
+                .attr("transform", `translate(0, ${currentY + barOffsetY + kpiCenterOffset})`);
 
             kpiG.append("text")
                 .attr("x", 0)
@@ -408,9 +420,9 @@ export class Visual implements IVisual {
         this.settings.segmentColors.numColors.value = segments.length;
 
         const allColorSlices = [
-            s.segmentColors.c1,  s.segmentColors.c2,  s.segmentColors.c3,
-            s.segmentColors.c4,  s.segmentColors.c5,  s.segmentColors.c6,
-            s.segmentColors.c7,  s.segmentColors.c8,  s.segmentColors.c9,
+            s.segmentColors.c1, s.segmentColors.c2, s.segmentColors.c3,
+            s.segmentColors.c4, s.segmentColors.c5, s.segmentColors.c6,
+            s.segmentColors.c7, s.segmentColors.c8, s.segmentColors.c9,
             s.segmentColors.c10, s.segmentColors.c11, s.segmentColors.c12,
             s.segmentColors.c13, s.segmentColors.c14, s.segmentColors.c15,
             s.segmentColors.c16, s.segmentColors.c17, s.segmentColors.c18,
@@ -617,7 +629,7 @@ export class Visual implements IVisual {
 
     public getFormattingModel(): powerbi.visuals.FormattingModel {
         this.settings.thresholdsConfig.updateVisibleSlices(false);
-        
+
         // Sincronizar el panel de colores con el número real de segmentos
         const n = this.lastSegments.length;
         this.settings.segmentColors.numColors.value = n;
@@ -625,11 +637,11 @@ export class Visual implements IVisual {
 
         // Renombrar cada picker con el rango del segmento
         const allColorSlices = [
-            this.settings.segmentColors.c1,  this.settings.segmentColors.c2,
-            this.settings.segmentColors.c3,  this.settings.segmentColors.c4,
-            this.settings.segmentColors.c5,  this.settings.segmentColors.c6,
-            this.settings.segmentColors.c7,  this.settings.segmentColors.c8,
-            this.settings.segmentColors.c9,  this.settings.segmentColors.c10,
+            this.settings.segmentColors.c1, this.settings.segmentColors.c2,
+            this.settings.segmentColors.c3, this.settings.segmentColors.c4,
+            this.settings.segmentColors.c5, this.settings.segmentColors.c6,
+            this.settings.segmentColors.c7, this.settings.segmentColors.c8,
+            this.settings.segmentColors.c9, this.settings.segmentColors.c10,
             this.settings.segmentColors.c11, this.settings.segmentColors.c12,
             this.settings.segmentColors.c13, this.settings.segmentColors.c14,
             this.settings.segmentColors.c15, this.settings.segmentColors.c16,
