@@ -164,6 +164,50 @@ export class Visual implements IVisual {
         return segs;
     }
 
+    // ── Portado del gauge: lógica de etiquetas de leyenda con signos ≥ / < ────
+    // Soporta tres modos:
+    //   1. Sin signos: rango numérico simple "start – end"
+    //   2. Con signos + etiquetas del dataset: "≤ etiqueta" / "> etiqueta"
+    //   3. Con signos + fallback numérico: "≤ valor" / "> valor"
+    private buildLegendLabel(
+        seg: Segment,
+        segIndex: number,
+        totalSegs: number,
+        ascending: boolean,
+        unit: string,
+        showSigns: boolean
+    ): string {
+        // parseFloat elimina ceros finales: 30.0 → "30", 35.5 → "35.5"
+        const fmt = (n: number): string => {
+            if (n !== 0 && Math.abs(n) < 1) return `${parseFloat((n * 100).toFixed(1))}%`;
+            return `${parseFloat(n.toFixed(1))}`;
+        };
+
+        // ── Sin signos: rango simple ───────────────────────────────────────────
+        if (!showSigns) {
+            return `${fmt(seg.start)} \u2013 ${fmt(seg.end)}${unit}`;
+        }
+
+        // ── Con signos: lógica ascendente/descendente ─────────────────────────
+        // Segmento único → siempre rango completo
+        if (totalSegs === 1) {
+            return `${fmt(seg.start)} \u2013 ${fmt(seg.end)}${unit}`;
+        }
+
+        if (ascending) {
+            // El último segmento es el "mejor" (ej. Objetivo)
+            return segIndex === totalSegs - 1
+                ? `> ${fmt(seg.start)}${unit}`
+                : `\u2264 ${fmt(seg.end)}${unit}`;
+        } else {
+            // El primer segmento es el "mejor" en orden descendente
+            return segIndex === 0
+                ? `< ${fmt(seg.end)}${unit}`
+                : `\u2265 ${fmt(seg.start)}${unit}`;
+        }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     private renderEmpty(msg: string, options: VisualUpdateOptions): void {
         const w = options.viewport.width;
         const h = options.viewport.height;
@@ -188,7 +232,8 @@ export class Visual implements IVisual {
         const fontSize = (s.labels.fontSize.value as number) ?? 12;
         const fontColor = (s.labels.fontColor.value as any)?.value ?? "#333333";
         const markerColor = (s.marker.color.value as any)?.value ?? "#1a1a1a";
-        const markerWidth = (s.marker.width.value as number) ?? 16;
+        const markerHeightVal = (s.marker.width.value as number) ?? 16;
+        const markerThickness = (s.marker.thickness.value as number) ?? 3;
         const showLabel = s.marker.showLabel.value as boolean;
         const targetColor = (s.target.color.value as any)?.value ?? "#ffffff";
         const targetWidth = (s.target.width.value as number) ?? 2;
@@ -196,11 +241,18 @@ export class Visual implements IVisual {
         const showName = s.labels.showIndicatorName.value as boolean;
         const showTicks = s.bar.showThresholdTicks.value as boolean;
         const showLegend = s.bar.showLegend.value as boolean;
+        const showLegendSigns = s.bar.showLegendSigns.value as boolean;  // ← NUEVO
         const unit = (s.scale.unit.value as string) ?? "";
 
-        // ── Tamaños del panel KPI — leídos del panel de formato ──────────────
-        const kpiValueFontSize = (s.labels.kpiValueFontSize.value as number) ?? 16;
-        const kpiLabelFontSize = (s.labels.kpiLabelFontSize.value as number) ?? 10;
+        // ── KPI Panel settings (portados desde gauge) ────────────────────────
+        const kpi = s.kpiPanel;
+        const kpiFontFamily   = (kpi.fontFamily.value as string) || "Segoe UI";
+        const kpiFontWeight   = (kpi.bold.value as boolean)   ? "bold"   : "normal";
+        const kpiFontStyle    = (kpi.italic.value as boolean)  ? "italic" : "normal";
+        const kpiValueFontSize = (kpi.valueFontSize.value as number) ?? 16;
+        const kpiLabelFontSize = (kpi.labelFontSize.value as number) ?? 10;
+        const kpiValueColor    = (kpi.valueColor.value as any)?.value ?? "#1a1a1a";
+        const kpiLabelColor    = (kpi.labelColor.value as any)?.value ?? "#777777";
         // ────────────────────────────────────────────────────────────────────
 
         let dynamicMin = indicator.value;
@@ -255,11 +307,9 @@ export class Visual implements IVisual {
         // Responsive scaling multiplier
         const widthScale = Math.min(1.5, Math.max(0.8, viewWidth / 400));
 
-        const margin = { top: 10, right: 30, bottom: 20, left: 6 };
+        const margin = { top: 10, right: 5, bottom: 20, left: 6 };
         if (showName) margin.top += Math.round((fontSize + 10) * widthScale);
 
-        // ── FIX: condición robusta — evita que "", "null" o valores falsy
-        //    oculten el panel cuando el campo sí tiene datos
         const rawFormatText = indicator.formatText;
         const hasFormatText = rawFormatText != null
             && String(rawFormatText).trim() !== ""
@@ -267,7 +317,25 @@ export class Visual implements IVisual {
         const formatTextDisplay = hasFormatText ? String(rawFormatText) : "";
 
         const leftPanelWidth = hasFormatText ? 75 : 0;
-        const legendWidth = showLegend ? Math.round(110 * widthScale) : 0;
+
+        const ascending = s.order.ascending.value as boolean;
+        const segments = this.buildSegments(minVal, maxVal, ascending, globalResolvedThresholds);
+
+        let dynamicLegendWidth = 0;
+        if (showLegend) {
+            let maxCharCount = 0;
+            segments.forEach((seg, i) => {
+                const labelStr = this.buildLegendLabel(seg, i, segments.length, ascending, unit, showLegendSigns);
+                if (labelStr.length > maxCharCount) {
+                    maxCharCount = labelStr.length;
+                }
+            });
+            const legendFontSize = Math.max(10, fontSize - 2) * widthScale;
+            // Approx 0.61 of font size = average char width. Plus 12px gap + 10px circle.
+            dynamicLegendWidth = maxCharCount > 0 ? (maxCharCount * legendFontSize * 0.61) + (22 * widthScale) : 0;
+        }
+
+        const legendWidth = showLegend ? Math.round(dynamicLegendWidth) : 0;
         const drawWidth = Math.max(1, viewWidth - margin.left - margin.right - leftPanelWidth - legendWidth);
         const scaleX = d3.scaleLinear().domain([minVal, maxVal]).range([0, drawWidth]).clamp(true);
 
@@ -286,35 +354,34 @@ export class Visual implements IVisual {
         // If legend is shown and taller than bar, center bar vertically relative to legend
         const barOffsetY = (showLegend && legendTotalHeight > barH) ? Math.round((legendTotalHeight - barH) / 2) : 0;
 
-        // ── FIX: Left KPI Panel
-        // Problema original: attr("y", 0) con dominant-baseline "hanging" posicionaba
-        // el texto en y=0 absoluto del grupo, que coincide con el borde superior del SVG
-        // y quedaba recortado. Solución: usar y explícitos positivos dentro del grupo,
-        // con dominant-baseline "auto" (baseline normal), y agregar margin.top al grupo.
+        // ── Panel KPI izquierdo (valor formateado + etiqueta "Objetivo") ───────
+        // Usa KpiPanelCard: fontFamily, bold, italic, colores y tamaños propios.
         if (hasFormatText) {
             const kpiG = mainG.append("g")
                 .attr("transform", `translate(0, ${currentY + barOffsetY})`);
- 
-            // Valor formateado — tamaño controlado por kpiValueFontSize
+
             kpiG.append("text")
                 .attr("x", 0)
-                .attr("y", kpiValueFontSize)          // y = tamaño de fuente para que no se corte
+                .attr("y", kpiValueFontSize)
                 .attr("dominant-baseline", "auto")
                 .attr("text-anchor", "start")
                 .attr("font-size", `${kpiValueFontSize}px`)
-                .attr("font-weight", "bold")
-                .attr("fill", fontColor)
+                .attr("font-weight", kpiFontWeight)
+                .attr("font-style", kpiFontStyle)
+                .attr("font-family", kpiFontFamily)
+                .attr("fill", kpiValueColor)
                 .text(formatTextDisplay);
- 
-            // Etiqueta "Objetivo" — justo debajo del valor
+
             kpiG.append("text")
                 .attr("x", 0)
-                .attr("y", kpiValueFontSize + kpiLabelFontSize + 4)   // valor + etiqueta + pequeño gap
+                .attr("y", kpiValueFontSize + kpiLabelFontSize + 4)
                 .attr("dominant-baseline", "auto")
                 .attr("text-anchor", "start")
                 .attr("font-size", `${kpiLabelFontSize}px`)
-                .attr("font-weight", "600")
-                .attr("fill", "#777")
+                .attr("font-weight", kpiFontWeight)
+                .attr("font-style", kpiFontStyle)
+                .attr("font-family", kpiFontFamily)
+                .attr("fill", kpiLabelColor)
                 .text("Objetivo");
         }
         // ────────────────────────────────────────────────────────────────────
@@ -336,17 +403,10 @@ export class Visual implements IVisual {
                 .text(indicatorName);
         }
 
-        const ascending = s.order.ascending.value as boolean;
-        const segments = this.buildSegments(minVal, maxVal, ascending, globalResolvedThresholds);
-
         // ── Guardar segmentos para getFormattingModel ─────────────────────────
-        // Sincronizar numColors con el número real de segmentos para que el panel
-        // muestre exactamente los pickers correctos, con el color auto como default.
         this.lastSegments = segments;
         this.settings.segmentColors.numColors.value = segments.length;
 
-        // Pre-rellenar los pickers que estén vacíos con el color automático actual.
-        // Así el usuario ve el color real del segmento antes de editarlo.
         const allColorSlices = [
             s.segmentColors.c1,  s.segmentColors.c2,  s.segmentColors.c3,
             s.segmentColors.c4,  s.segmentColors.c5,  s.segmentColors.c6,
@@ -360,35 +420,32 @@ export class Visual implements IVisual {
         segments.forEach((seg, i) => {
             if (i >= allColorSlices.length) return;
             const current = allColorSlices[i].value?.value;
-            // Solo rellenar si está vacío — no pisar lo que el usuario ya eligió
             if (!current || current.trim() === "") {
                 allColorSlices[i].value = { value: seg.color };
             }
         });
         // ─────────────────────────────────────────────────────────────────────
 
-
         this.drawVectorBar(entryG, finalValue, segments, globalResolvedThresholds, scaleX, barH, radius,
-            markerColor, markerWidth, showLabel, showTicks, unit, fontSize, fontColor, minVal, maxVal,
+            markerColor, markerHeightVal, markerThickness, showLabel, showTicks, unit, fontSize, fontColor, minVal, maxVal,
             indicator.target, targetColor, targetWidth, showTarget);
 
-        // Tachometer right legend
+        // ── Leyenda lateral derecha ───────────────────────────────────────────
         if (showLegend) {
-            const legendG = mainG.append("g").attr("transform", `translate(${leftPanelWidth + drawWidth + 20}, ${currentY + 5})`);
+            const legendG = mainG.append("g").attr("transform", `translate(${leftPanelWidth + drawWidth + 15}, ${currentY + 5})`);
 
             let legY = 0;
 
             segments.forEach((seg, i) => {
-                let labelStr = "";
-                if (segments.length === 1) {
-                    labelStr = `${seg.start}${unit} - ${seg.end}${unit}`;
-                } else if (i === 0) {
-                    labelStr = `≤ ${seg.end}${unit}`;
-                } else if (i === segments.length - 1) {
-                    labelStr = `≥ ${seg.start}${unit}`;
-                } else {
-                    labelStr = `${seg.start} - ${seg.end}${unit}`;
-                }
+                // ── buildLegendLabel con signos (portado del gauge) ───────────
+                const labelStr = this.buildLegendLabel(
+                    seg,
+                    i,
+                    segments.length,
+                    ascending,
+                    unit,
+                    showLegendSigns
+                );
 
                 legendG.append("circle")
                     .attr("cx", 0)
@@ -423,7 +480,8 @@ export class Visual implements IVisual {
         barH: number,
         radius: number,
         markerColor: string,
-        markerWidth: number,
+        markerHeightVal: number,
+        markerThickness: number,
         showLabel: boolean,
         showTicks: boolean,
         unit: string,
@@ -488,16 +546,17 @@ export class Visual implements IVisual {
 
         const markerPos = scaleX(value);
 
-        const ph = Math.max(12, markerWidth * 1.5);
-        const pw = Math.max(8, ph * 0.4);
-        const th = ph * 0.4;
+        const actualMarkerHeight = Math.max(barH + 8, markerHeightVal);
+        const topOverflow = (actualMarkerHeight - barH) / 2;
 
-        const points = `-${pw / 2},-${ph} ${pw / 2},-${ph} ${pw / 2},-${th} 0,0 -${pw / 2},-${th}`;
-
-        group.append("polygon")
-            .attr("points", points)
+        group.append("rect")
+            .attr("x", markerPos - markerThickness / 2)
+            .attr("y", -topOverflow)
+            .attr("width", markerThickness)
+            .attr("height", actualMarkerHeight)
             .attr("fill", markerColor)
-            .attr("transform", `translate(${markerPos}, ${-1})`);
+            .attr("rx", 1.5)
+            .attr("ry", 1.5);
 
         if (showTarget && targetValue != null && targetValue >= minVal && targetValue <= maxVal) {
             const tx = scaleX(targetValue);
@@ -514,7 +573,7 @@ export class Visual implements IVisual {
         if (showLabel) {
             const lbl = group.append("text")
                 .attr("x", markerPos)
-                .attr("y", -ph - 6)
+                .attr("y", -topOverflow - 6)
                 .attr("font-size", `${Math.max(9, fontSize - 2)}px`)
                 .attr("fill", fontColor)
                 .attr("text-anchor", "middle")
@@ -523,7 +582,7 @@ export class Visual implements IVisual {
             const textLen = (`${value}${unit}`.length * (fontSize - 2) * 0.6) + 4;
             group.insert("rect", "text:last-child")
                 .attr("x", markerPos - textLen / 2)
-                .attr("y", -ph - 6 - (fontSize - 2))
+                .attr("y", -topOverflow - 6 - (fontSize - 2))
                 .attr("width", textLen)
                 .attr("height", fontSize)
                 .attr("fill", "rgba(255,255,255,0.85)")
@@ -560,13 +619,11 @@ export class Visual implements IVisual {
         this.settings.thresholdsConfig.updateVisibleSlices(false);
         
         // Sincronizar el panel de colores con el número real de segmentos
-        // y mostrar solo los pickers necesarios con etiquetas descriptivas
         const n = this.lastSegments.length;
         this.settings.segmentColors.numColors.value = n;
         this.settings.segmentColors.updateVisibleSlices();
 
-        // Renombrar cada picker con el rango del segmento para que el usuario
-        // sepa qué segmento está coloreando
+        // Renombrar cada picker con el rango del segmento
         const allColorSlices = [
             this.settings.segmentColors.c1,  this.settings.segmentColors.c2,
             this.settings.segmentColors.c3,  this.settings.segmentColors.c4,
@@ -591,6 +648,7 @@ export class Visual implements IVisual {
         this.settings.marker.slices = [
             this.settings.marker.color,
             this.settings.marker.width,
+            this.settings.marker.thickness,
             this.settings.marker.overrideValue,
             this.settings.marker.showLabel
         ];

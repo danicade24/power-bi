@@ -157,6 +157,10 @@
           "displayName": "Alto del marcador (px)",
           "type": { "numeric": true }
         },
+        "thickness": {
+          "displayName": "Ancho (grosor) del marcador (px)",
+          "type": { "numeric": true }
+        },
         "overrideValue": {
           "displayName": "Valor en eje X (Manual)",
           "type": { "numeric": true }
@@ -204,18 +208,40 @@
         "showIndicatorName": {
           "displayName": "Mostrar nombre del indicador",
           "type": { "bool": true }
+        }
+      }
+    },
+
+    "kpiPanelSettings": {
+      "displayName": "Panel KPI (valor formateado)",
+      "properties": {
+        "valueFontSize": {
+          "displayName": "Tamaño valor",
+          "type": { "numeric": true }
         },
-        "kpiValueFontSize": {
-          "displayName": "Tamaño valor formateado (px)",
-          "type": {
-            "numeric": true
-          }
+        "labelFontSize": {
+          "displayName": "Tamaño etiqueta",
+          "type": { "numeric": true }
         },
-        "kpiLabelFontSize": {
-          "displayName": "Tamaño etiqueta 'Objetivo' (px)",
-          "type": {
-            "numeric": true
-          }
+        "valueColor": {
+          "displayName": "Color del valor",
+          "type": { "fill": { "solid": { "color": true } } }
+        },
+        "labelColor": {
+          "displayName": "Color de etiqueta",
+          "type": { "fill": { "solid": { "color": true } } }
+        },
+        "fontFamily": {
+          "displayName": "Fuente",
+          "type": { "formatting": { "fontFamily": true } }
+        },
+        "bold": {
+          "displayName": "Negrita",
+          "type": { "bool": true }
+        },
+        "italic": {
+          "displayName": "Cursiva",
+          "type": { "bool": true }
         }
       }
     }

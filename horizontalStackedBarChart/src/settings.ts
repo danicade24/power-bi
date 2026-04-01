@@ -95,12 +95,18 @@ export class MarkerSettingsCard extends FormattingSettingsCard {
         value: 16,
         options: { minValue: { type: powerbi.visuals.ValidatorType.Min, value: 8 } }
     });
+    thickness = new formattingSettings.NumUpDown({
+        name: "thickness",
+        displayName: "Ancho (grosor) del marcador",
+        value: 3,
+        options: { minValue: { type: powerbi.visuals.ValidatorType.Min, value: 1 } }
+    });
     overrideValue = new formattingSettings.NumUpDown({ name: "overrideValue", displayName: "Valor en eje X (Manual)", value: null as any });
     showLabel     = new formattingSettings.ToggleSwitch({ name: "showLabel", displayName: "Mostrar etiqueta", value: false });
 
     name = "markerSettings";
     displayName = "Marcador";
-    slices = [this.color, this.width, this.overrideValue, this.showLabel];
+    slices = [this.color, this.width, this.thickness, this.overrideValue, this.showLabel];
 }
 
 export class BarSettingsCard extends FormattingSettingsCard {
@@ -108,46 +114,84 @@ export class BarSettingsCard extends FormattingSettingsCard {
     borderRadius       = new formattingSettings.NumUpDown({ name: "borderRadius", displayName: "Esquinas redondeadas", value: 4 });
     showThresholdTicks = new formattingSettings.ToggleSwitch({ name: "showThresholdTicks", displayName: "Mostrar marcas (ticks)", value: false });
     showLegend         = new formattingSettings.ToggleSwitch({ name: "showLegend", displayName: "Mostrar leyenda", value: false });
+    // ── NUEVO: toggle para mostrar signos ≥ / < en la leyenda ────────────────
+    showLegendSigns    = new formattingSettings.ToggleSwitch({ name: "showLegendSigns", displayName: "Mostrar signos en leyenda (\u2265 / <)", value: true });
 
     name = "barSettings";
     displayName = "Configuración de Barra";
-    slices = [this.height, this.borderRadius, this.showThresholdTicks, this.showLegend];
+    slices = [this.height, this.borderRadius, this.showThresholdTicks, this.showLegend, this.showLegendSigns];
 }
 
 export class LabelSettingsCard extends FormattingSettingsCard {
-    fontSize          = new formattingSettings.NumUpDown({ name: "fontSize",          displayName: "Tamaño",                         value: 12  });
-    fontColor         = new formattingSettings.ColorPicker({ name: "fontColor",       displayName: "Color",                          value: { value: "#333333" } });
-    showIndicatorName = new formattingSettings.ToggleSwitch({ name: "showIndicatorName", displayName: "Mostrar nombre",              value: false });
+    fontSize          = new formattingSettings.NumUpDown({ name: "fontSize",          displayName: "Tamaño fuente general",  value: 12  });
+    fontColor         = new formattingSettings.ColorPicker({ name: "fontColor",       displayName: "Color fuente general",   value: { value: "#333333" } });
+    showIndicatorName = new formattingSettings.ToggleSwitch({ name: "showIndicatorName", displayName: "Mostrar nombre",      value: false });
 
-    // ── NUEVAS: tamaños del panel KPI izquierdo ──────────────────────────────
-    kpiValueFontSize  = new formattingSettings.NumUpDown({
-        name: "kpiValueFontSize",
-        displayName: "Tamaño valor formateado (px)",
+    name = "labelSettings";
+    displayName = "Etiquetas Generales";
+    // NOTA: kpiValueFontSize y kpiLabelFontSize se eliminaron de aquí
+    // y se movieron a KpiPanelCard para mayor claridad y control.
+    slices = [this.fontSize, this.fontColor, this.showIndicatorName];
+}
+
+// ── Panel KPI izquierdo (valor formateado + etiqueta "Objetivo") ──────────────
+// Portado desde el gauge chart para tener control completo sobre
+// tipografía, colores y estilo del panel lateral de valor.
+export class KpiPanelCard extends FormattingSettingsCard {
+
+    // Tamaños
+    valueFontSize = new formattingSettings.NumUpDown({
+        name: "valueFontSize",
+        displayName: "Tamaño valor (px)",
         value: 16,
         options: {
             minValue: { type: powerbi.visuals.ValidatorType.Min, value: 6  },
-            maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 72 }
+            maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 96 }
         }
     });
-    kpiLabelFontSize  = new formattingSettings.NumUpDown({
-        name: "kpiLabelFontSize",
+    labelFontSize = new formattingSettings.NumUpDown({
+        name: "labelFontSize",
         displayName: "Tamaño etiqueta 'Objetivo' (px)",
         value: 10,
         options: {
             minValue: { type: powerbi.visuals.ValidatorType.Min, value: 6  },
-            maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 36 }
+            maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 48 }
         }
     });
-    // ────────────────────────────────────────────────────────────────────────
 
-    name = "labelSettings";
-    displayName = "Etiquetas Generales";
+    // Colores
+    valueColor = new formattingSettings.ColorPicker({
+        name: "valueColor",
+        displayName: "Color del valor",
+        value: { value: "#1a1a1a" }
+    });
+    labelColor = new formattingSettings.ColorPicker({
+        name: "labelColor",
+        displayName: "Color de la etiqueta 'Objetivo'",
+        value: { value: "#777777" }
+    });
+
+    // Fuente
+    fontFamily = new formattingSettings.FontPicker({
+        name: "fontFamily",
+        displayName: "Fuente (font-family)",
+        value: "Segoe UI"
+    });
+
+    // Estilo
+    bold   = new formattingSettings.ToggleSwitch({ name: "bold",   displayName: "Negrita", value: false });
+    italic = new formattingSettings.ToggleSwitch({ name: "italic", displayName: "Cursiva", value: false });
+
+    name = "kpiPanelSettings";
+    displayName = "Panel KPI (valor formateado)";
     slices = [
-        this.fontSize,
-        this.fontColor,
-        this.showIndicatorName,
-        this.kpiValueFontSize,
-        this.kpiLabelFontSize
+        this.valueFontSize,
+        this.labelFontSize,
+        this.valueColor,
+        this.labelColor,
+        this.fontFamily,
+        this.bold,
+        this.italic
     ];
 }
 
@@ -210,6 +254,7 @@ export class VisualSettings extends FormattingSettingsModel {
     bar              = new BarSettingsCard();
     labels           = new LabelSettingsCard();
     target           = new TargetSettingsCard();
+    kpiPanel         = new KpiPanelCard();   // ← nueva tarjeta portada del gauge
 
-    cards = [this.scale, this.bar, this.order, this.marker, this.thresholdsConfig, this.segmentColors, this.labels, this.target];
+    cards = [this.scale, this.bar, this.order, this.marker, this.thresholdsConfig, this.segmentColors, this.labels, this.target, this.kpiPanel];
 }
