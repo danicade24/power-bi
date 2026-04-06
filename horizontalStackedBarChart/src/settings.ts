@@ -25,7 +25,7 @@ export class OrderSettingsCard extends FormattingSettingsCard {
 export class ThresholdsCard extends FormattingSettingsCard {
     numThresholds = new formattingSettings.NumUpDown({ 
         name: "numThresholds", 
-        displayName: "Umbrales adicionales (Manuales)", 
+        displayName: "¿Cuántos umbrales manuales quieres?", 
         value: 0, 
         options: { 
             minValue: { type: powerbi.visuals.ValidatorType.Min, value: 0 }, 
@@ -54,7 +54,7 @@ export class ThresholdsCard extends FormattingSettingsCard {
     t20 = new formattingSettings.NumUpDown({ name: "t20", displayName: "Umbral 20", value: null as any });
 
     name = "thresholdsSettings";
-    displayName = "Líneas de Umbral (internas)";
+    displayName = "Configurar Umbrales Manuales";
     slices = [this.numThresholds, this.t1, this.t2, this.t3, this.t4, this.t5, this.t6, this.t7, this.t8, this.t9, this.t10, this.t11, this.t12, this.t13, this.t14, this.t15, this.t16, this.t17, this.t18, this.t19, this.t20];
 
     public updateVisibleSlices(hasDynamic: boolean) {
@@ -253,5 +253,5 @@ export class VisualSettings extends FormattingSettingsModel {
     target           = new TargetSettingsCard();
     kpiPanel         = new KpiPanelCard();   // ← nueva tarjeta portada del gauge
 
-    cards = [this.scale, this.bar, this.order, this.marker, this.thresholdsConfig, this.segmentColors, this.labels, this.target, this.kpiPanel];
+    cards = [this.scale, this.thresholdsConfig, this.bar, this.order, this.marker, this.segmentColors, this.labels, this.target, this.kpiPanel];
 }

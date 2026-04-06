@@ -120,9 +120,9 @@
     },
 
     "thresholdsSettings": {
-      "displayName": "Líneas de Umbral",
+      "displayName": "Configurar Umbrales Manuales",
       "properties": {
-        "numThresholds": { "displayName": "Número de umbrales manuales", "type": { "numeric": true } },
+        "numThresholds": { "displayName": "¿Cuántos umbrales manuales quieres?", "type": { "numeric": true } },
         "t1": { "displayName": "Umbral 1", "type": { "numeric": true } },
         "t2": { "displayName": "Umbral 2", "type": { "numeric": true } },
         "t3": { "displayName": "Umbral 3", "type": { "numeric": true } },

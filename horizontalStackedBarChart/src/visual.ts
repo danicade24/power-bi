@@ -128,10 +128,8 @@ export class Visual implements IVisual {
         ascending: boolean,
         tValues: number[]
     ): Segment[] {
-        let rootColors = ['#00A651', '#84C225', '#FFFF00', '#FFA500', '#FF5500', '#FF0000'];
-        if (!ascending) {
-            rootColors = rootColors.slice().reverse();
-        }
+        // Por defecto: Rojo a Verde (para valores de menor a mayor)
+        let rootColors = ['#FF0000', '#FF5500', '#FFA500', '#FFFF00', '#84C225', '#00A651'];
 
         const colorScale = d3.interpolateRgbBasis(rootColors);
 
@@ -255,8 +253,11 @@ export class Visual implements IVisual {
         const kpiLabelColor = (kpi.labelColor.value as any)?.value ?? "#777777";
         // ────────────────────────────────────────────────────────────────────
 
-        let dynamicMin = indicator.value;
-        let dynamicMax = indicator.value;
+        const overrideValue = s.marker.overrideValue.value;
+        const finalValue = (overrideValue != null && overrideValue !== ("" as any)) ? overrideValue as number : indicator.value;
+
+        let dynamicMin = finalValue;
+        let dynamicMax = finalValue;
 
         const rawManualThresholds = this.settings.thresholdsConfig.getActiveThresholdsOrNulls();
         const manualThresholds = rawManualThresholds.filter((t): t is number => t != null);
@@ -346,7 +347,8 @@ export class Visual implements IVisual {
 
         const legendWidth = showLegend ? Math.round(dynamicLegendWidth) : 0;
         const drawWidth = Math.max(1, viewWidth - margin.left - margin.right - leftPanelWidth - legendWidth);
-        const scaleX = d3.scaleLinear().domain([minVal, maxVal]).range([0, drawWidth]).clamp(true);
+        const scaleDomain = ascending ? [minVal, maxVal] : [maxVal, minVal];
+        const scaleX = d3.scaleLinear().domain(scaleDomain).range([0, drawWidth]).clamp(true);
 
         // Pre-calculate legend height to center bar vertically against it
         const numSegments = globalResolvedThresholds.length + 1;
@@ -356,9 +358,6 @@ export class Visual implements IVisual {
 
         const mainG = this.container.append("g")
             .attr("transform", `translate(${margin.left}, 0)`);
-
-        const overrideValue = s.marker.overrideValue.value;
-        const finalValue = (overrideValue != null && overrideValue !== ("" as any)) ? overrideValue as number : indicator.value;
 
         // If legend is shown and taller than bar, center bar vertically relative to legend
         const barOffsetY = (showLegend && legendTotalHeight > barH) ? Math.round((legendTotalHeight - barH) / 2) : 0;
@@ -510,10 +509,12 @@ export class Visual implements IVisual {
         radius = 0; // Fixed radius = 0 according to requirements
         const clipId = "clip-" + (++Visual.clipIdCounter);
 
+        const totalW = Math.abs(scaleX(maxVal) - scaleX(minVal));
+
         group.append("clipPath")
             .attr("id", clipId)
             .append("rect")
-            .attr("width", scaleX(maxVal))
+            .attr("width", totalW)
             .attr("height", barH)
             .attr("rx", radius)
             .attr("ry", radius);
@@ -522,10 +523,13 @@ export class Visual implements IVisual {
             .attr("clip-path", `url(#${clipId})`);
 
         segments.forEach(seg => {
-            const w = scaleX(seg.end) - scaleX(seg.start);
+            const x1 = scaleX(seg.start);
+            const x2 = scaleX(seg.end);
+            const x = Math.min(x1, x2);
+            const w = Math.abs(x2 - x1);
             if (w > 0) {
                 barGroup.append("rect")
-                    .attr("x", scaleX(seg.start))
+                    .attr("x", x)
                     .attr("y", 0)
                     .attr("width", w)
                     .attr("height", barH)
@@ -548,7 +552,7 @@ export class Visual implements IVisual {
         });
 
         group.append("rect")
-            .attr("width", scaleX(maxVal))
+            .attr("width", totalW)
             .attr("height", barH)
             .attr("rx", radius)
             .attr("ry", radius)
