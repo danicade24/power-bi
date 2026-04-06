@@ -126,19 +126,39 @@ export class Visual implements IVisual {
         minVal: number,
         maxVal: number,
         ascending: boolean,
+        invertColors: boolean,
         tValues: number[]
     ): Segment[] {
-        // Por defecto: Rojo a Verde (para valores de menor a mayor)
-        let rootColors = ['#FF0000', '#FF5500', '#FFA500', '#FFFF00', '#84C225', '#00A651'];
-
-        const colorScale = d3.interpolateRgbBasis(rootColors);
-
         const validThresholds = tValues
             .filter(v => v > minVal && v < maxVal)
             .sort((a, b) => a - b);
 
         const marks = [minVal, ...validThresholds, maxVal];
         const numSegments = marks.length - 1;
+
+        // Por defecto: Rojo a Verde (para valores de menor a mayor)
+        let rootColors = ['#FF0000', '#FF5500', '#FFA500', '#FFFF00', '#84C225', '#00A651'];
+
+        if (numSegments >= 10) {
+            rootColors = [
+                '#4A4559', // Gris violáceo oscuro
+                '#A2423D', // Rojo marrón
+                '#FF0000', // Rojo
+                '#FFA500', // Naranja
+                '#FFFF00', // Amarillo
+                '#FFF59D', // Amarillo pálido
+                '#D4E157', // Amarillo verdoso
+                '#81C784', // Verde suculenta
+                '#00A651', // Verde
+                '#006400'  // Verde oscuro
+            ];
+        }
+
+        if (invertColors) {
+            rootColors = rootColors.slice().reverse();
+        }
+
+        const colorScale = d3.interpolateRgbBasis(rootColors);
 
         const manualColors = this.settings.segmentColors.getActiveColors();
         const segs: Segment[] = [];
@@ -329,7 +349,8 @@ export class Visual implements IVisual {
         }
 
         const ascending = s.order.ascending.value as boolean;
-        const segments = this.buildSegments(minVal, maxVal, ascending, globalResolvedThresholds);
+        const invertColors = s.order.invertColors.value as boolean;
+        const segments = this.buildSegments(minVal, maxVal, ascending, invertColors, globalResolvedThresholds);
 
         let dynamicLegendWidth = 0;
         if (showLegend) {
@@ -658,7 +679,8 @@ export class Visual implements IVisual {
         });
 
         this.settings.order.slices = [
-            this.settings.order.ascending
+            this.settings.order.ascending,
+            this.settings.order.invertColors
         ];
 
         this.settings.marker.slices = [

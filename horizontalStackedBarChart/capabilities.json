@@ -97,6 +97,10 @@
         "ascending": {
           "displayName": "Colores Ascendentes",
           "type": { "bool": true }
+        },
+        "invertColors": {
+          "displayName": "Invertir Solo Colores (Alternativo)",
+          "type": { "bool": true }
         }
       }
     },

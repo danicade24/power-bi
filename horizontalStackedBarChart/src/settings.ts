@@ -16,10 +16,11 @@ export class ScaleSettingsCard extends FormattingSettingsCard {
 
 export class OrderSettingsCard extends FormattingSettingsCard {
     ascending = new formattingSettings.ToggleSwitch({ name: "ascending", displayName: "Colores Ascendentes", value: true });
+    invertColors = new formattingSettings.ToggleSwitch({ name: "invertColors", displayName: "Invertir Solo Colores (Alternativo)", value: false });
 
     name = "orderSettings";
     displayName = "Orden de Segmentos";
-    slices = [this.ascending];
+    slices = [this.ascending, this.invertColors];
 }
 
 export class ThresholdsCard extends FormattingSettingsCard {
