@@ -1,0 +1,32 @@
+.flag-chart-wrapper {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
+    /* Custom scrollbar */
+    &::-webkit-scrollbar {
+        height: 8px;
+    }
+    &::-webkit-scrollbar-track {
+        background: #f8f8f8;
+        border-radius: 4px;
+    }
+    &::-webkit-scrollbar-thumb {
+        background: #ddd;
+        border-radius: 4px;
+    }
+    &::-webkit-scrollbar-thumb:hover {
+        background: #ccc;
+    }
+}
+
+.bar {
+    transition: opacity 0.2s ease;
+    cursor: default !important;
+}
+
+.bar:hover {
+    opacity: 0.75;
+}
+
+.value-label {
+    pointer-events: none;
+}

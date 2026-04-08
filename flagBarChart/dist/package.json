@@ -1,0 +1,17 @@
+{
+		"version": "1.0.0.0",
+		"author": {"name":"Da","email":"author@example.com"},
+		"resources": [
+			{
+				"resourceId": "rId0",
+				"sourceType": 5,
+				"file": "resources/flagBarChart1001.pbiviz.json"
+			}
+		],
+		"visual": {"name":"flagBarChart","displayName":"Flag Bar Chart","guid":"flagBarChart1001","visualClassName":"Visual","version":"1.0.0.0","description":"Bar chart with flag images on the X axis.","supportUrl":"https://example.com/support","gitHubUrl":""},
+		"metadata": {
+			"pbivizjson": {
+				"resourceId": "rId0"
+			}
+		}
+	}

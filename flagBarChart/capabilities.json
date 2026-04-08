@@ -1,0 +1,99 @@
+{
+    "dataRoles": [
+      {
+        "displayName": "País (Categoría)",
+        "name": "category",
+        "kind": "Grouping"
+      },
+      {
+        "displayName": "Valor",
+        "name": "measure",
+        "kind": "Measure"
+      },
+      {
+        "displayName": "URL Bandera",
+        "name": "imageUrl",
+        "kind": "Grouping"
+      }
+    ],
+    "dataViewMappings": [
+      {
+        "categorical": {
+          "categories": {
+            "select": [
+              { "for": { "in": "category" } },
+              { "for": { "in": "imageUrl" } }
+            ],
+            "dataReductionAlgorithm": {
+              "top": { "count": 1000 }
+            }
+          },
+          "values": {
+            "select": [
+              { "bind": { "to": "measure" } }
+            ]
+          }
+        }
+      }
+    ],
+    "objects": {
+      "yAxis": {
+        "displayName": "Eje Y",
+        "properties": {
+          "barColor": {
+            "displayName": "Color de barras",
+            "type": { "fill": { "solid": { "color": true } } }
+          },
+          "barWidth": {
+            "displayName": "Ancho de barras (px)",
+            "type": { "numeric": true }
+          }
+        }
+      },
+      "xAxis": {
+        "displayName": "Eje X",
+        "properties": {
+          "showLabels": {
+            "displayName": "Mostrar nombres",
+            "type": { "bool": true }
+          },
+          "labelFontSize": {
+            "displayName": "Tamaño de texto",
+            "type": { "numeric": true }
+          },
+          "labelColor": {
+            "displayName": "Color de texto",
+            "type": { "fill": { "solid": { "color": true } } }
+          },
+          "flagSize": {
+            "displayName": "Tamaño de bandera (px)",
+            "type": { "numeric": true }
+          }
+        }
+      },
+      "dataLabels": {
+        "displayName": "Etiquetas de datos",
+        "properties": {
+          "showValues": {
+            "displayName": "Mostrar valores",
+            "type": { "bool": true }
+          },
+          "fontSize": {
+            "displayName": "Tamaño de fuente",
+            "type": { "numeric": true }
+          }
+        }
+      }
+    },
+    "supportsHighlight": false,
+    "privileges": [
+        {
+            "name": "WebAccess",
+            "essential": true,
+            "parameters": ["*"]
+        }
+    ],
+    "sorting": {
+        "default": {}
+    }
+}
