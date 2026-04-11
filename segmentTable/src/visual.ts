@@ -5,6 +5,8 @@ import { FormattingSettingsService, formattingSettings } from "powerbi-visuals-u
 import * as d3 from "d3";
 
 import { VisualSettings } from "./settings";
+import { mapCategoryToNumber } from "./dictionaries/index";
+import { RATINGS_MAP } from "./dictionaries/ratings";
 
 import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
 import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
@@ -147,6 +149,11 @@ export class Visual implements IVisual {
 
         for (let i = 0; i < numRows; i++) {
             const rawValue = getRawValAt(measureCol, i);
+            let normalizedValue = rawValue;  
+
+            if (typeof normalizedValue === "string" && normalizedValue.toUpperCase() in RATINGS_MAP) {
+                normalizedValue = normalizedValue.toUpperCase();
+            }
 
             const label = labelCat
                 ? (labelCat.values[i] != null ? String(labelCat.values[i]) : `Fila ${i + 1}`)
@@ -166,7 +173,7 @@ export class Visual implements IVisual {
 
             rows.push({
                 label, group,
-                value:          rawValue,
+                value:          normalizedValue,
                 target:         getNumAt(targetCol, i),
                 dataMin:        getNumAt(minCol, i),
                 dataMax:        getNumAt(maxCol, i),
@@ -230,7 +237,7 @@ export class Visual implements IVisual {
         const barH            = Math.max(8, (s.bar.height.value as number) ?? 20);
         const radius          = (s.bar.borderRadius.value as number) ?? 4;
         
-        const labelFontSize   = (s.labels.labelFontSize.value as number) ?? 12;
+        const labelFontSize   = (s.labels.labelFontSize.value as number) ?? 8;
         const labelFontColor  = (s.labels.labelFontColor.value as any)?.value ?? "#333333";
         const valueFontSize   = (s.labels.valueFontSize.value as number) ?? 12;
         const valueFontColor  = (s.labels.valueFontColor.value as any)?.value ?? "#333333";
@@ -252,12 +259,26 @@ export class Visual implements IVisual {
 
         // ── Anchos de columna ─────────────────────────────────────────────────
         const labelPct  = Math.max(5, Math.min(50, (s.labels.labelColWidth?.value as number) ?? 25)) / 100;
-        const valuePct  = Math.max(5, Math.min(40, (s.labels.valueColWidth?.value as number) ?? 12)) / 100;
         const margin    = { top: 8, right: 8, bottom: 12, left: 8 };
         const totalW    = viewWidth - margin.left - margin.right;
         const labelColW = Math.round(totalW * labelPct);
-        const valueColW = Math.round(totalW * valuePct);
-        const barColW   = Math.max(20, totalW - labelColW - valueColW);
+
+        // Calcular ancho de col de valor según el texto más largo en los datos.
+        // Así funciona bien tanto para números cortos como para textos largos,
+        // y se adapta al redimensionar porque totalW cambia con el viewport.
+        const longestValue = rows.reduce((max, row) => {
+            const txt = typeof row.value === "string"
+                ? String(row.value)
+                : parseFloat(((row.value as number) ?? 0).toFixed(2)).toString() + unit;
+            return txt.length > max.length ? txt : max;
+        }, "");
+        const valueColW = Math.max(
+            40,                                               // mínimo absoluto
+            Math.round(totalW * 0.08),                       // mínimo 8% del ancho
+            Math.round(longestValue.length * valueFontSize * 0.58 + 12) // según texto más largo
+        );
+
+        const barColW   = Math.max(20, totalW - labelColW - valueColW - 3);
 
         // ── Configuración de cabecera de grupo ────────────────────────────────
         const ghBg  = (s.groupHeader?.bgColor?.value as any)?.value ?? "#eef1f6";
@@ -287,6 +308,30 @@ export class Visual implements IVisual {
             groupOrder.reverse();
         }
 
+        // ── Ordenar filas: las que tienen barra primero, las sin barra al final ─
+        // Una fila "tiene barra" si su valor es numérico o está en el diccionario,
+        // Y además tiene al menos un umbral definido.
+        const rowHasBar = (row: TableRowData): boolean => {
+            const isNum = typeof row.value === "number";
+            const isMapped = typeof row.value === "string"
+                && mapCategoryToNumber(row.value) !== null;
+            const hasThr = row.dataThresholds.length > 0;
+            return (isNum || isMapped) && hasThr;
+        };
+
+        const sortRows = (arr: TableRowData[]): TableRowData[] =>
+            [...arr].sort((a, b) => {
+                const aBar = rowHasBar(a) ? 0 : 1;
+                const bBar = rowHasBar(b) ? 0 : 1;
+                return aBar - bBar;  // con barra (0) antes que sin barra (1)
+            });
+
+        // Aplicar orden a filas sin grupo y a cada grupo
+        const sortedNoGroupRows = sortRows(noGroupRows);
+        groupOrder.forEach(g => {
+            groupedRows.set(g, sortRows(groupedRows.get(g)!));
+        });
+
         let maxSegmentsFound: Segment[] = [];
         let currentY   = margin.top;
 
@@ -303,13 +348,31 @@ export class Visual implements IVisual {
                 : row.value;
             
             const hasValue = finalValue != null;
-            const isNumeric = typeof finalValue === "number";
+
+            // Si el valor es texto, intentamos mapearlo al diccionario.
+            // El valor mapeado se usa para la barra; el texto original se muestra en Col 2.
+            const mappedNumeric: number | null =
+                typeof finalValue === "string" ? mapCategoryToNumber(finalValue) : null;
+
+            const isNumeric  = typeof finalValue === "number";
+            const isMapped   = mappedNumeric !== null;     // texto con mapeo conocido
+            const numericVal = isNumeric                   // valor numérico final para la barra
+                ? (finalValue as number)
+                : (isMapped ? mappedNumeric! : null);
+
+            // Para dibujar barra se necesita valor numérico Y al menos un umbral.
+            // Sin umbrales no hay escala definida y la barra no tiene sentido.
+            const rawManual = this.settings.thresholdsConfig.getActiveThresholdsOrNulls();
+            const manualThr = rawManual.filter((t): t is number => t != null);
+            const hasThresholds = row.dataThresholds.length > 0 || manualThr.length > 0;
+            const hasBar = numericVal !== null && hasThresholds;
+
+            // negrita automática para filas sin barra
+            const isBold = !hasBar;
 
             // min / max dinámico por fila
-            let dynamicMin = isNumeric ? (finalValue as number) : 0;
-            let dynamicMax = isNumeric ? (finalValue as number) : 0;
-            const rawManual   = this.settings.thresholdsConfig.getActiveThresholdsOrNulls();
-            const manualThr   = rawManual.filter((t): t is number => t != null);
+            let dynamicMin = hasBar ? numericVal! : 0;
+            let dynamicMax = hasBar ? numericVal! : 0;
 
             if (row.target != null  && !isNaN(row.target))  {
                 if (row.target  > dynamicMax) dynamicMax = row.target;
@@ -377,14 +440,16 @@ export class Visual implements IVisual {
                 .attr("y", topPad + barH / 2)
                 .attr("dominant-baseline", "middle")
                 .attr("font-size", `${labelFontSize}px`)
+                .attr("font-weight", isBold ? "bold" : "normal")
                 .attr("fill", labelFontColor)
                 .text(row.label);
 
             if (hasValue) {
-                // Col 2 — Valor
+                // Col 2 — Valor: muestra el texto original si es categórico,
+                // o el número formateado si es numérico directo.
                 const displayedValue = isNumeric
                     ? parseFloat((finalValue as number).toFixed(2)).toString()
-                    : String(finalValue);
+                    : String(finalValue);  // texto original del diccionario
 
                 rowG.append("text")
                     .attr("x", labelColW + valueColW / 2)
@@ -392,16 +457,17 @@ export class Visual implements IVisual {
                     .attr("dominant-baseline", "middle")
                     .attr("text-anchor", "middle")
                     .attr("font-size", `${valueFontSize}px`)
+                    .attr("font-weight", isBold ? "bold" : "normal")
                     .attr("fill", valueFontColor)
                     .text(isNumeric ? `${displayedValue}${unit}` : displayedValue);
 
-                if (isNumeric) {
-                    // Col 3 — Barra
+                if (hasBar) {
+                    // Col 3 — Barra: usa numericVal (número directo o mapeado del diccionario)
                     const barG = rowG.append("g")
                         .attr("transform", `translate(${labelColW + valueColW}, ${topPad})`);
 
                     this.drawVectorBar(
-                        barG, finalValue as number, segments, resolvedThresholds, scaleX,
+                        barG, numericVal!, segments, resolvedThresholds, scaleX,
                         barH, radius, markerColor, markerHeightVal, markerThickness,
                         showLabel, showTicks, unit, valueFontSize, valueFontColor,
                         minVal, maxVal, row.target, targetColor, targetWidth, showTarget,
@@ -414,11 +480,11 @@ export class Visual implements IVisual {
         };
 
         // ── Filas sin grupo ───────────────────────────────────────────────────
-        noGroupRows.forEach((row, i) => {
+        sortedNoGroupRows.forEach((row, i) => {
             currentY += renderOneRow(row, currentY, i > 0, false);
         });
 
-        if (noGroupRows.length > 0 && groupOrder.length > 0) {
+        if (sortedNoGroupRows.length > 0 && groupOrder.length > 0) {
             currentY += 4;
         }
 
