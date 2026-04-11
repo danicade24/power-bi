@@ -39,7 +39,7 @@ export class Visual implements IVisual {
     private formattingSettingsService: FormattingSettingsService;
 
     // Segmentos del último render (para getFormattingModel)
-    private lastSegments: Segment[] = [];
+    private lastSegments: Segment[] = []; 
 
     // Estado para re-render al colapsar/expandir grupos
     private lastRows: TableRowData[] = [];
@@ -82,8 +82,8 @@ export class Visual implements IVisual {
         }
 
         // Guardar estado para re-render en collapse/expand
-        this.lastRows = rows;
-        this.lastWidth = options.viewport.width;
+        this.lastRows   = rows;
+        this.lastWidth  = options.viewport.width;
         this.lastHeight = options.viewport.height;
 
         this.renderTable(rows, options.viewport.width, options.viewport.height);
@@ -95,17 +95,17 @@ export class Visual implements IVisual {
         if (!cat?.values?.length) return [];
 
         let measureCol: powerbi.DataViewValueColumn | undefined;
-        let targetCol: powerbi.DataViewValueColumn | undefined;
-        let minCol: powerbi.DataViewValueColumn | undefined;
-        let maxCol: powerbi.DataViewValueColumn | undefined;
+        let targetCol:  powerbi.DataViewValueColumn | undefined;
+        let minCol:     powerbi.DataViewValueColumn | undefined;
+        let maxCol:     powerbi.DataViewValueColumn | undefined;
         let formatTextCol: powerbi.DataViewValueColumn | undefined;
         const thresholdCols: powerbi.DataViewValueColumn[] = [];
 
         cat.values.forEach(valueCol => {
-            if (valueCol.source.roles["measure"]) measureCol = valueCol;
-            if (valueCol.source.roles["target"]) targetCol = valueCol;
-            if (valueCol.source.roles["min"]) minCol = valueCol;
-            if (valueCol.source.roles["max"]) maxCol = valueCol;
+            if (valueCol.source.roles["measure"])    measureCol    = valueCol;
+            if (valueCol.source.roles["target"])     targetCol     = valueCol;
+            if (valueCol.source.roles["min"])        minCol        = valueCol;
+            if (valueCol.source.roles["max"])        maxCol        = valueCol;
             if (valueCol.source.roles["thresholds"]) thresholdCols.push(valueCol);
             if (valueCol.source.roles["formatText"]) formatTextCol = valueCol;
         });
@@ -114,7 +114,7 @@ export class Visual implements IVisual {
 
         const labelCat = cat.categories?.find(c => c.source.roles["label"]);
         const groupCat = cat.categories?.find(c => c.source.roles["group"]);
-        const numRows = labelCat
+        const numRows  = labelCat
             ? labelCat.values.length
             : (measureCol.values.length ?? 1);
 
@@ -150,12 +150,12 @@ export class Visual implements IVisual {
 
             rows.push({
                 label, group,
-                value: rawValue,
-                target: getNumAt(targetCol, i),
-                dataMin: getNumAt(minCol, i),
-                dataMax: getNumAt(maxCol, i),
+                value:          rawValue,
+                target:         getNumAt(targetCol, i),
+                dataMin:        getNumAt(minCol, i),
+                dataMax:        getNumAt(maxCol, i),
                 dataThresholds, formatText,
-                measureName: measureCol.source.displayName
+                measureName:    measureCol.source.displayName
             });
         }
 
@@ -178,11 +178,11 @@ export class Visual implements IVisual {
         let rootColors = ['#FF0000', '#FF5500', '#FFA500', '#FFFF00', '#84C225', '#00A651'];
         if (numSegments >= 10) {
             rootColors = ['#4A4559', '#A2423D', '#FF0000', '#FFA500', '#FFFF00',
-                '#FFF59D', '#D4E157', '#81C784', '#00A651', '#006400'];
+                          '#FFF59D', '#D4E157', '#81C784', '#00A651', '#006400'];
         }
         if (invertColors) rootColors = rootColors.slice().reverse();
 
-        const colorScale = d3.interpolateRgbBasis(rootColors);
+        const colorScale   = d3.interpolateRgbBasis(rootColors);
         const manualColors = this.settings.segmentColors.getActiveColors();
         const segs: Segment[] = [];
 
@@ -198,7 +198,7 @@ export class Visual implements IVisual {
 
     private renderEmpty(msg: string, options: VisualUpdateOptions): void {
         this.container.append("text")
-            .attr("x", options.viewport.width / 2)
+            .attr("x", options.viewport.width  / 2)
             .attr("y", options.viewport.height / 2)
             .attr("text-anchor", "middle")
             .attr("fill", "#888")
@@ -211,43 +211,44 @@ export class Visual implements IVisual {
         const s = this.settings;
 
         // ── Configuración general ─────────────────────────────────────────────
-        const barH = Math.max(8, (s.bar.height.value as number) ?? 20);
-        const radius = (s.bar.borderRadius.value as number) ?? 4;
-        const fontSize = (s.labels.fontSize.value as number) ?? 12;
-        const fontColor = (s.labels.fontColor.value as any)?.value ?? "#333333";
-        const markerColor = (s.marker.color.value as any)?.value ?? "#1a1a1a";
+        const barH            = Math.max(8, (s.bar.height.value as number) ?? 20);
+        const radius          = (s.bar.borderRadius.value as number) ?? 4;
+        const fontSize        = (s.labels.fontSize.value as number) ?? 12;
+        const fontColor       = (s.labels.fontColor.value as any)?.value ?? "#333333";
+        const markerColor     = (s.marker.color.value as any)?.value ?? "#1a1a1a";
         const markerHeightVal = (s.marker.width.value as number) ?? 16;
         const markerThickness = (s.marker.thickness.value as number) ?? 3;
-        const showLabel = s.marker.showLabel.value as boolean;
-        const targetColor = (s.target.color.value as any)?.value ?? "#ffffff";
-        const targetWidth = (s.target.width.value as number) ?? 2;
-        const showTarget = s.target.show.value as boolean;
-        const showTicks = s.bar.showThresholdTicks.value as boolean;
-        const unit = (s.scale.unit.value as string) ?? "";
-        const ascending = s.order.ascending.value as boolean;
-        const invertColors = s.order.invertColors.value as boolean;
-        const rowSpacing = Math.max(0, (s.bar.rowSpacing?.value as number) ?? 0);
-        const overrideValue = s.marker.overrideValue.value;
+        const showLabel       = s.marker.showLabel.value as boolean;
+        const targetColor     = (s.target.color.value as any)?.value ?? "#ffffff";
+        const targetWidth     = (s.target.width.value as number) ?? 2;
+        const showTarget      = s.target.show.value as boolean;
+        const showTicks       = s.bar.showThresholdTicks.value as boolean;
+        const unit            = (s.scale.unit.value as string) ?? "";
+        const ascending       = s.order.ascending.value as boolean;
+        const invertColors    = s.order.invertColors.value as boolean;
+        const rowSpacing      = Math.max(0, (s.bar.rowSpacing?.value as number) ?? 0);
+        const invertGroups    = s.groupHeader?.invertGroupOrder?.value as boolean;
+        const overrideValue   = s.marker.overrideValue.value;
 
         // ── Anchos de columna ─────────────────────────────────────────────────
-        const labelPct = Math.max(5, Math.min(50, (s.labels.labelColWidth?.value as number) ?? 25)) / 100;
-        const valuePct = Math.max(5, Math.min(40, (s.labels.valueColWidth?.value as number) ?? 12)) / 100;
-        const margin = { top: 8, right: 8, bottom: 12, left: 8 };
-        const totalW = viewWidth - margin.left - margin.right;
+        const labelPct  = Math.max(5, Math.min(50, (s.labels.labelColWidth?.value as number) ?? 25)) / 100;
+        const valuePct  = Math.max(5, Math.min(40, (s.labels.valueColWidth?.value as number) ?? 12)) / 100;
+        const margin    = { top: 8, right: 8, bottom: 12, left: 8 };
+        const totalW    = viewWidth - margin.left - margin.right;
         const labelColW = Math.round(totalW * labelPct);
         const valueColW = Math.round(totalW * valuePct);
-        const barColW = Math.max(20, totalW - labelColW - valueColW);
+        const barColW   = Math.max(20, totalW - labelColW - valueColW);
 
         // ── Configuración de cabecera de grupo ────────────────────────────────
-        const ghBg = (s.groupHeader?.bgColor?.value as any)?.value ?? "#eef1f6";
+        const ghBg  = (s.groupHeader?.bgColor?.value as any)?.value ?? "#eef1f6";
         const ghTxt = (s.groupHeader?.fontColor?.value as any)?.value ?? "#2c4a72";
-        const ghFs = (s.groupHeader?.fontSize?.value as number) ?? 11;
-        const ghH = Math.max(18, (s.groupHeader?.headerHeight?.value as number) ?? 26);
+        const ghFs  = (s.groupHeader?.fontSize?.value as number) ?? 11;
+        const ghH   = Math.max(18, (s.groupHeader?.headerHeight?.value as number) ?? 26);
 
         // ── Agrupar filas ─────────────────────────────────────────────────────
-        const groupOrder: string[] = [];
+        const groupOrder: string[]                   = [];
         const groupedRows: Map<string, TableRowData[]> = new Map();
-        const noGroupRows: TableRowData[] = [];
+        const noGroupRows: TableRowData[]            = [];
         const hasGroups = rows.some(r => r.group);
 
         rows.forEach(row => {
@@ -262,35 +263,12 @@ export class Visual implements IVisual {
             }
         });
 
-        let segSynced = false;
-        let currentY = margin.top;
+        if (invertGroups) {
+            groupOrder.reverse();
+        }
 
-        // ── Cabecera de la tabla ──────────────────────────────────────────────
-        const tableHeaderH = Math.round(fontSize * 2);
-        const thG = this.container.append("g")
-            .attr("transform", `translate(${margin.left}, ${currentY})`);
-
-        // Línea inferior de la cabecera
-        thG.append("line")
-            .attr("x1", 0).attr("y1", tableHeaderH)
-            .attr("x2", totalW).attr("y2", tableHeaderH)
-            .attr("stroke", "#c5cdd8").attr("stroke-width", 1.5);
-
-        const addHeader = (text: string, x: number, anchor: string) =>
-            thG.append("text")
-                .attr("x", x).attr("y", tableHeaderH - 5)
-                .attr("text-anchor", anchor)
-                .attr("font-size", `${fontSize}px`)
-                .attr("font-weight", "600")
-                .attr("fill", "#666666")
-                .text(text);
-
-        const labelIndent = hasGroups ? 20 : 0;
-        addHeader("Indicador", labelIndent, "start");
-        addHeader("Valor", labelColW + valueColW / 2, "middle");
-        addHeader("Estado", labelColW + valueColW + barColW / 2, "middle");
-
-        currentY += tableHeaderH + 4;
+        let maxSegmentsFound: Segment[] = [];
+        let currentY   = margin.top;
 
         // ── Renderizador de una sola fila ─────────────────────────────────────
         // Devuelve los píxeles consumidos (altura de fila + rowSpacing).
@@ -306,18 +284,18 @@ export class Visual implements IVisual {
 
             // min / max dinámico por fila
             let dynamicMin = finalValue, dynamicMax = finalValue;
-            const rawManual = this.settings.thresholdsConfig.getActiveThresholdsOrNulls();
-            const manualThr = rawManual.filter((t): t is number => t != null);
+            const rawManual   = this.settings.thresholdsConfig.getActiveThresholdsOrNulls();
+            const manualThr   = rawManual.filter((t): t is number => t != null);
 
-            if (row.target != null && !isNaN(row.target)) {
-                if (row.target > dynamicMax) dynamicMax = row.target;
-                if (row.target < dynamicMin) dynamicMin = row.target;
+            if (row.target != null  && !isNaN(row.target))  {
+                if (row.target  > dynamicMax) dynamicMax = row.target;
+                if (row.target  < dynamicMin) dynamicMin = row.target;
             }
             if (row.dataMax != null && !isNaN(row.dataMax) && row.dataMax > dynamicMax) dynamicMax = row.dataMax;
             if (row.dataMin != null && !isNaN(row.dataMin) && row.dataMin < dynamicMin) dynamicMin = row.dataMin;
 
             row.dataThresholds.forEach(t => { if (!isNaN(t)) { if (t > dynamicMax) dynamicMax = t; if (t < dynamicMin) dynamicMin = t; } });
-            manualThr.forEach(t => { if (!isNaN(t)) { if (t > dynamicMax) dynamicMax = t; if (t < dynamicMin) dynamicMin = t; } });
+            manualThr.forEach(t =>          { if (!isNaN(t)) { if (t > dynamicMax) dynamicMax = t; if (t < dynamicMin) dynamicMin = t; } });
 
             if (dynamicMax === dynamicMin) dynamicMax = dynamicMin + 1;
 
@@ -331,42 +309,25 @@ export class Visual implements IVisual {
 
             // Umbrales por fila
             const dataThrs = row.dataThresholds.filter(t => !isNaN(t));
-            const tSet = new Set<number>();
+            const tSet     = new Set<number>();
             dataThrs.forEach(t => tSet.add(t));
             manualThr.forEach(t => tSet.add(t));
             const resolvedThresholds = Array.from(tSet).sort((a, b) => a - b);
 
             const segments = this.buildSegments(minVal, maxVal, ascending, invertColors, resolvedThresholds);
 
-            // Sincronizar colores solo con la primera fila
-            if (!segSynced) {
-                segSynced = true;
-                this.lastSegments = segments;
-                this.settings.segmentColors.numColors.value = segments.length;
-                const allCS = [
-                    s.segmentColors.c1, s.segmentColors.c2, s.segmentColors.c3,
-                    s.segmentColors.c4, s.segmentColors.c5, s.segmentColors.c6,
-                    s.segmentColors.c7, s.segmentColors.c8, s.segmentColors.c9,
-                    s.segmentColors.c10, s.segmentColors.c11, s.segmentColors.c12,
-                    s.segmentColors.c13, s.segmentColors.c14, s.segmentColors.c15,
-                    s.segmentColors.c16, s.segmentColors.c17, s.segmentColors.c18,
-                    s.segmentColors.c19, s.segmentColors.c20
-                ];
-                segments.forEach((seg, i) => {
-                    if (i >= allCS.length) return;
-                    const cur = allCS[i].value?.value;
-                    if (!cur || cur.trim() === "") allCS[i].value = { value: seg.color };
-                });
+            if (segments.length > maxSegmentsFound.length) {
+                maxSegmentsFound = segments;
             }
 
             const scaleDomain = ascending ? [minVal, maxVal] : [maxVal, minVal];
             const scaleX = d3.scaleLinear().domain(scaleDomain).range([0, barColW]).clamp(true);
 
             const markerOverflow = Math.max(0, (Math.max(barH + 8, markerHeightVal) - barH) / 2);
-            const labelOverflow = showLabel ? Math.max(9, fontSize - 2) + 8 : 0;
-            const topPad = Math.max(markerOverflow, labelOverflow) + 4;
-            const bottomPad = markerOverflow + (showTicks ? 20 : 4);
-            const rowH = topPad + barH + bottomPad;
+            const labelOverflow  = showLabel ? Math.max(9, fontSize - 2) + 8 : 0;
+            const topPad         = Math.max(markerOverflow, labelOverflow) + 4;
+            const bottomPad      = markerOverflow + (showTicks ? 20 : 4);
+            const rowH           = topPad + barH + bottomPad;
 
             const rowG = this.container.append("g")
                 .attr("transform", `translate(${margin.left}, ${rowY})`);
@@ -435,7 +396,7 @@ export class Visual implements IVisual {
 
         // ── Grupos colapsables ────────────────────────────────────────────────
         groupOrder.forEach((groupName, gIdx) => {
-            const groupRows = groupedRows.get(groupName)!;
+            const groupRows  = groupedRows.get(groupName)!;
             const isCollapsed = this.collapsedGroups.has(groupName);
 
             // ── Cabecera del grupo ────────────────────────────────────────────
@@ -519,6 +480,8 @@ export class Visual implements IVisual {
             // Separación entre grupos
             if (gIdx < groupOrder.length - 1) currentY += 6;
         });
+        
+        this.lastSegments = maxSegmentsFound;
 
         // ── Altura total del SVG ──────────────────────────────────────────────
         this.container.style("height", `${Math.max(viewHeight, currentY + margin.bottom)}px`);
@@ -564,7 +527,7 @@ export class Visual implements IVisual {
 
         segments.forEach(seg => {
             const x1 = scaleX(seg.start), x2 = scaleX(seg.end);
-            const x = Math.min(x1, x2), w = Math.abs(x2 - x1);
+            const x  = Math.min(x1, x2), w = Math.abs(x2 - x1);
             if (w > 0) {
                 barGroup.append("rect")
                     .attr("x", x).attr("y", 0).attr("width", w).attr("height", barH)
@@ -589,7 +552,7 @@ export class Visual implements IVisual {
         const displayedValue = !isNaN(value) ? parseFloat(value.toFixed(2)).toString() : String(value);
 
         const actualMarkerHeight = Math.max(barH + 8, markerHeightVal);
-        const topOverflow = (actualMarkerHeight - barH) / 2;
+        const topOverflow        = (actualMarkerHeight - barH) / 2;
 
         group.append("rect")
             .attr("x", markerPos - markerThickness / 2).attr("y", -topOverflow)
@@ -663,11 +626,11 @@ export class Visual implements IVisual {
         this.settings.segmentColors.updateVisibleSlices();
 
         const allColorSlices = [
-            this.settings.segmentColors.c1, this.settings.segmentColors.c2,
-            this.settings.segmentColors.c3, this.settings.segmentColors.c4,
-            this.settings.segmentColors.c5, this.settings.segmentColors.c6,
-            this.settings.segmentColors.c7, this.settings.segmentColors.c8,
-            this.settings.segmentColors.c9, this.settings.segmentColors.c10,
+            this.settings.segmentColors.c1,  this.settings.segmentColors.c2,
+            this.settings.segmentColors.c3,  this.settings.segmentColors.c4,
+            this.settings.segmentColors.c5,  this.settings.segmentColors.c6,
+            this.settings.segmentColors.c7,  this.settings.segmentColors.c8,
+            this.settings.segmentColors.c9,  this.settings.segmentColors.c10,
             this.settings.segmentColors.c11, this.settings.segmentColors.c12,
             this.settings.segmentColors.c13, this.settings.segmentColors.c14,
             this.settings.segmentColors.c15, this.settings.segmentColors.c16,

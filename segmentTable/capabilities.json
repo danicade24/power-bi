@@ -172,6 +172,7 @@
     "groupHeaderSettings": {
       "displayName": "Cabecera de Grupo",
       "properties": {
+        "invertGroupOrder": { "displayName": "Invertir orden de grupos", "type": { "bool": true } },
         "bgColor":      { "displayName": "Color de fondo",       "type": { "fill": { "solid": { "color": true } } } },
         "fontColor":    { "displayName": "Color de texto",       "type": { "fill": { "solid": { "color": true } } } },
         "fontSize":     { "displayName": "Tamaño de fuente (px)","type": { "numeric": true } },

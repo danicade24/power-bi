@@ -146,6 +146,9 @@ export class LabelSettingsCard extends FormattingSettingsCard {
 
 // ── Cabecera de Grupo ──────────────────────────────────────────────────────────
 export class GroupHeaderCard extends FormattingSettingsCard {
+    invertGroupOrder = new formattingSettings.ToggleSwitch({
+        name: "invertGroupOrder", displayName: "Invertir orden de grupos", value: false
+    });
     bgColor = new formattingSettings.ColorPicker({
         name: "bgColor", displayName: "Color de fondo", value: { value: "#eef1f6" }
     });
@@ -169,7 +172,7 @@ export class GroupHeaderCard extends FormattingSettingsCard {
 
     name = "groupHeaderSettings";
     displayName = "Cabecera de Grupo";
-    slices = [this.bgColor, this.fontColor, this.fontSize, this.headerHeight];
+    slices = [this.invertGroupOrder, this.bgColor, this.fontColor, this.fontSize, this.headerHeight];
 }
 
 export class KpiPanelCard extends FormattingSettingsCard {
