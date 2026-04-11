@@ -121,27 +121,24 @@ export class BarSettingsCard extends FormattingSettingsCard {
 }
 
 export class LabelSettingsCard extends FormattingSettingsCard {
-    fontSize          = new formattingSettings.NumUpDown({ name: "fontSize",    displayName: "Tamaño fuente general", value: 12 });
-    fontColor         = new formattingSettings.ColorPicker({ name: "fontColor", displayName: "Color fuente general",  value: { value: "#333333" } });
-    showIndicatorName = new formattingSettings.ToggleSwitch({ name: "showIndicatorName", displayName: "Mostrar nombre", value: false });
-    labelColWidth     = new formattingSettings.NumUpDown({
+    labelFontSize  = new formattingSettings.NumUpDown({ name: "labelFontSize",  displayName: "Tamaño fuente (Indicador)", value: 12 });
+    labelFontColor = new formattingSettings.ColorPicker({ name: "labelFontColor", displayName: "Color fuente (Indicador)", value: { value: "#333333" } });
+    valueFontSize  = new formattingSettings.NumUpDown({ name: "valueFontSize",  displayName: "Tamaño fuente (Valor)",     value: 12 });
+    valueFontColor = new formattingSettings.ColorPicker({ name: "valueFontColor", displayName: "Color fuente (Valor)",      value: { value: "#333333" } });
+    fontFamily     = new formattingSettings.FontPicker({ name: "fontFamily",  displayName: "Familia tipográfica",       value: "Segoe UI, wf_segoe-ui_regular, sans-serif" });
+    
+    labelColWidth  = new formattingSettings.NumUpDown({
         name: "labelColWidth", displayName: "Ancho columna Etiqueta (%)", value: 25,
-        options: {
-            minValue: { type: powerbi.visuals.ValidatorType.Min, value: 5  },
-            maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 50 }
-        }
+        options: { minValue: { type: powerbi.visuals.ValidatorType.Min, value: 5 }, maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 50 } }
     });
-    valueColWidth     = new formattingSettings.NumUpDown({
+    valueColWidth  = new formattingSettings.NumUpDown({
         name: "valueColWidth", displayName: "Ancho columna Valor (%)", value: 12,
-        options: {
-            minValue: { type: powerbi.visuals.ValidatorType.Min, value: 5  },
-            maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 40 }
-        }
+        options: { minValue: { type: powerbi.visuals.ValidatorType.Min, value: 5 }, maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 40 } }
     });
 
     name = "labelSettings";
-    displayName = "Etiquetas Generales";
-    slices = [this.fontSize, this.fontColor, this.showIndicatorName, this.labelColWidth, this.valueColWidth];
+    displayName = "Estilos de Texto (Filas)";
+    slices = [this.fontFamily, this.labelFontSize, this.labelFontColor, this.valueFontSize, this.valueFontColor, this.labelColWidth, this.valueColWidth];
 }
 
 // ── Cabecera de Grupo ──────────────────────────────────────────────────────────

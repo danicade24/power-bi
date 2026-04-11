@@ -159,11 +159,13 @@
     },
 
     "labelSettings": {
-      "displayName": "Etiquetas Generales",
+      "displayName": "Estilo de Texto (Filas)",
       "properties": {
-        "fontSize":        { "displayName": "Tamaño de fuente",          "type": { "numeric": true } },
-        "fontColor":       { "displayName": "Color de fuente",           "type": { "fill": { "solid": { "color": true } } } },
-        "showIndicatorName":{ "displayName": "Mostrar nombre indicador", "type": { "bool": true } },
+        "labelFontSize":   { "displayName": "Tamaño fuente (Indicador)", "type": { "numeric": true } },
+        "labelFontColor":  { "displayName": "Color fuente (Indicador)",  "type": { "fill": { "solid": { "color": true } } } },
+        "valueFontSize":   { "displayName": "Tamaño fuente (Valor)",     "type": { "numeric": true } },
+        "valueFontColor":  { "displayName": "Color fuente (Valor)",      "type": { "fill": { "solid": { "color": true } } } },
+        "fontFamily":      { "displayName": "Fuente",                    "type": { "formatting": { "fontFamily": true } } },
         "labelColWidth":   { "displayName": "Ancho columna Etiqueta (%)", "type": { "numeric": true } },
         "valueColWidth":   { "displayName": "Ancho columna Valor (%)",    "type": { "numeric": true } }
       }
