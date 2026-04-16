@@ -5,8 +5,9 @@ import { FormattingSettingsService, formattingSettings } from "powerbi-visuals-u
 import * as d3 from "d3";
 
 import { VisualSettings } from "./settings";
-import { mapCategoryToNumber } from "./dictionaries/index";
-import { RATINGS_MAP } from "./dictionaries/ratings";
+import { VARIABLE_CONFIG } from "./dictionaries/index";
+import { buildBarModel } from "./utils/barModel";
+import { mapNumberToRating } from "./dictionaries/ratings";
 
 import VisualConstructorOptions = powerbi.extensibility.visual.VisualConstructorOptions;
 import VisualUpdateOptions = powerbi.extensibility.visual.VisualUpdateOptions;
@@ -18,16 +19,15 @@ import DataView = powerbi.DataView;
 interface TableRowData {
     label: string;
     group?: string;           // nombre del grupo (opcional)
-    value: number | string | null;
+    valueNumeric: number | null;
+    valueText: string | null;
     target?: number | null;
-    dataMin?: number | null;
-    dataMax?: number | null;
-    dataThresholds: number[];
+    scale?: number | null;
     formatText?: string | null;
     measureName?: string;
 }
 
-interface Segment {
+interface SegmentVisual {
     start: number;
     end: number;
     color: string;
@@ -41,7 +41,7 @@ export class Visual implements IVisual {
     private formattingSettingsService: FormattingSettingsService;
 
     // Segmentos del último render (para getFormattingModel)
-    private lastSegments: Segment[] = []; 
+    private lastSegments: SegmentVisual[] = []; 
 
     // Estado para re-render al colapsar/expandir grupos
     private lastRows: TableRowData[] = [];
@@ -101,20 +101,18 @@ export class Visual implements IVisual {
         const cat = dataView.categorical;
         if (!cat) return [];
 
-        let measureCol: powerbi.DataViewValueColumn | undefined;
+        let valNumCol:  powerbi.DataViewValueColumn | undefined;
+        let valTextCol: powerbi.DataViewValueColumn | undefined;
         let targetCol:  powerbi.DataViewValueColumn | undefined;
-        let minCol:     powerbi.DataViewValueColumn | undefined;
-        let maxCol:     powerbi.DataViewValueColumn | undefined;
+        let scaleCol:   powerbi.DataViewValueColumn | undefined;
         let formatTextCol: powerbi.DataViewValueColumn | undefined;
-        const thresholdCols: powerbi.DataViewValueColumn[] = [];
 
         if (cat.values) {
             cat.values.forEach(valueCol => {
-                if (valueCol.source.roles["measure"])    measureCol    = valueCol;
+                if (valueCol.source.roles["value_numeric"]) valNumCol     = valueCol;
+                if (valueCol.source.roles["value_text"])    valTextCol    = valueCol;
                 if (valueCol.source.roles["target"])     targetCol     = valueCol;
-                if (valueCol.source.roles["min"])        minCol        = valueCol;
-                if (valueCol.source.roles["max"])        maxCol        = valueCol;
-                if (valueCol.source.roles["thresholds"]) thresholdCols.push(valueCol);
+                if (valueCol.source.roles["scale"])      scaleCol      = valueCol;
                 if (valueCol.source.roles["formatText"]) formatTextCol = valueCol;
             });
         }
@@ -122,11 +120,11 @@ export class Visual implements IVisual {
         const labelCat = cat.categories?.find(c => c.source.roles["label"]);
         const groupCat = cat.categories?.find(c => c.source.roles["group"]);
         
-        if (!labelCat && !measureCol) return [];
+        if (!labelCat && !valNumCol && !valTextCol) return [];
 
         const numRows  = labelCat
             ? labelCat.values.length
-            : (measureCol ? measureCol.values.length : 1);
+            : ((valNumCol ? valNumCol.values.length : (valTextCol ? valTextCol.values.length : 1)));
 
         const getNumAt = (col: powerbi.DataViewValueColumn | undefined, i: number): number | null => {
             if (!col) return null;
@@ -145,27 +143,30 @@ export class Visual implements IVisual {
             return isNaN(num) ? String(v).trim() : num;
         };
 
+        const getTextAt = (col: powerbi.DataViewValueColumn | undefined, i: number): string | null => {
+            if (!col) return null;
+            const v = col.values[i];
+            if (v == null || String(v).trim() === "") return null;
+            return String(v).trim();
+        };
+
         const rows: TableRowData[] = [];
 
-        for (let i = 0; i < numRows; i++) {
-            const rawValue = getRawValAt(measureCol, i);
-            let normalizedValue = rawValue;  
+        let measureName = "";
+        if (valNumCol && valNumCol.source.displayName) measureName = valNumCol.source.displayName;
+        else if (valTextCol && valTextCol.source.displayName) measureName = valTextCol.source.displayName;
 
-            if (typeof normalizedValue === "string" && normalizedValue.toUpperCase() in RATINGS_MAP) {
-                normalizedValue = normalizedValue.toUpperCase();
-            }
+        for (let i = 0; i < numRows; i++) {
+            const rawValNum = getNumAt(valNumCol, i);
+            const rawValText = getTextAt(valTextCol, i);
 
             const label = labelCat
                 ? (labelCat.values[i] != null ? String(labelCat.values[i]) : `Fila ${i + 1}`)
-                : (measureCol?.source.displayName ?? `Fila ${i + 1}`);
+                : (measureName || `Fila ${i + 1}`);
 
             const group = groupCat
                 ? (groupCat.values[i] != null ? String(groupCat.values[i]) : undefined)
                 : undefined;
-
-            const dataThresholds = thresholdCols
-                .map(col => getNumAt(col, i))
-                .filter((v): v is number => v != null);
 
             const rawFmt = formatTextCol ? formatTextCol.values[i] : null;
             const formatText = (rawFmt != null && String(rawFmt).trim() !== "" && String(rawFmt).trim() !== "null")
@@ -173,12 +174,12 @@ export class Visual implements IVisual {
 
             rows.push({
                 label, group,
-                value:          normalizedValue,
+                valueNumeric:   rawValNum,
+                valueText:      rawValText,
                 target:         getNumAt(targetCol, i),
-                dataMin:        getNumAt(minCol, i),
-                dataMax:        getNumAt(maxCol, i),
-                dataThresholds, formatText,
-                measureName:    measureCol?.source.displayName
+                scale:          getNumAt(scaleCol, i),
+                formatText,
+                measureName
             });
         }
 
@@ -190,7 +191,7 @@ export class Visual implements IVisual {
         minVal: number, maxVal: number,
         ascending: boolean, invertColors: boolean,
         tValues: number[]
-    ): Segment[] {
+    ): SegmentVisual[] {
         const validThresholds = tValues
             .filter(v => v > minVal && v < maxVal)
             .sort((a, b) => a - b);
@@ -207,7 +208,7 @@ export class Visual implements IVisual {
 
         const colorScale   = d3.interpolateRgbBasis(rootColors);
         const manualColors = this.settings.segmentColors.getActiveColors();
-        const segs: Segment[] = [];
+        const segs: SegmentVisual[] = [];
 
         for (let i = 0; i < numSegments; i++) {
             const relMid = numSegments > 1 ? i / (numSegments - 1) : 1;
@@ -267,9 +268,34 @@ export class Visual implements IVisual {
         // Así funciona bien tanto para números cortos como para textos largos,
         // y se adapta al redimensionar porque totalW cambia con el viewport.
         const longestValue = rows.reduce((max, row) => {
-            const txt = typeof row.value === "string"
-                ? String(row.value)
-                : parseFloat(((row.value as number) ?? 0).toFixed(2)).toString() + unit;
+            const rowVal = row.valueNumeric != null ? row.valueNumeric : row.valueText;
+            const finalValue = (overrideValue != null && overrideValue !== ("" as any))
+                ? (overrideValue as number | string)
+                : rowVal;
+            
+            const bModel = buildBarModel(row.label, finalValue, row.scale);
+            let txt = "";
+            if (bModel !== null) {
+                if (row.valueNumeric != null) {
+                    txt = Math.floor(row.valueNumeric).toString() + unit;
+                } else if (bModel.label) {
+                    txt = bModel.label;
+                } else {
+                    txt = typeof finalValue === "string" ? finalValue.replace(/&/g, "/") : String(finalValue);
+                }
+            } else {
+                const parsedNum = Number(finalValue);
+                if (finalValue != null && finalValue !== "" && !isNaN(parsedNum)) {
+                    const ratingStr = mapNumberToRating(parsedNum);
+                    if (ratingStr) {
+                        txt = ratingStr;
+                    } else {
+                        txt = Math.floor(parsedNum).toString() + unit;
+                    }
+                } else {
+                    txt = typeof finalValue === "string" ? finalValue.replace(/&/g, "/") : String(finalValue);
+                }
+            }
             return txt.length > max.length ? txt : max;
         }, "");
         const valueColW = Math.max(
@@ -312,11 +338,13 @@ export class Visual implements IVisual {
         // Una fila "tiene barra" si su valor es numérico o está en el diccionario,
         // Y además tiene al menos un umbral definido.
         const rowHasBar = (row: TableRowData): boolean => {
-            const isNum = typeof row.value === "number";
-            const isMapped = typeof row.value === "string"
-                && mapCategoryToNumber(row.value) !== null;
-            const hasThr = row.dataThresholds.length > 0;
-            return (isNum || isMapped) && hasThr;
+            const config = VARIABLE_CONFIG[(row.label || "").toLowerCase().trim()];
+            if (!config) return false;
+            const finalValue = row.valueNumeric != null ? row.valueNumeric : row.valueText;
+            if (finalValue == null) return false;
+            const isNum = typeof finalValue === "number";
+            const isMapped = typeof finalValue === "string" && config.valueMap && config.valueMap[finalValue.toLowerCase().trim()] !== undefined;
+            return isNum || isMapped;
         };
 
         const sortRows = (arr: TableRowData[]): TableRowData[] =>
@@ -332,7 +360,7 @@ export class Visual implements IVisual {
             groupedRows.set(g, sortRows(groupedRows.get(g)!));
         });
 
-        let maxSegmentsFound: Segment[] = [];
+        let maxSegmentsFound: SegmentVisual[] = [];
         let currentY   = margin.top;
 
         // ── Renderizador de una sola fila ─────────────────────────────────────
@@ -343,71 +371,45 @@ export class Visual implements IVisual {
             showTopSep: boolean,
             indented: boolean
         ): number => {
+            const rowVal = row.valueNumeric != null ? row.valueNumeric : row.valueText;
             const finalValue = (overrideValue != null && overrideValue !== ("" as any))
                 ? (overrideValue as number | string)
-                : row.value;
+                : rowVal;
             
             const hasValue = finalValue != null;
-
-            // Si el valor es texto, intentamos mapearlo al diccionario.
-            // El valor mapeado se usa para la barra; el texto original se muestra en Col 2.
-            const mappedNumeric: number | null =
-                typeof finalValue === "string" ? mapCategoryToNumber(finalValue) : null;
-
-            const isNumeric  = typeof finalValue === "number";
-            const isMapped   = mappedNumeric !== null;     // texto con mapeo conocido
-            const numericVal = isNumeric                   // valor numérico final para la barra
-                ? (finalValue as number)
-                : (isMapped ? mappedNumeric! : null);
-
-            // Para dibujar barra se necesita valor numérico Y al menos un umbral.
-            // Sin umbrales no hay escala definida y la barra no tiene sentido.
-            const rawManual = this.settings.thresholdsConfig.getActiveThresholdsOrNulls();
-            const manualThr = rawManual.filter((t): t is number => t != null);
-            const hasThresholds = row.dataThresholds.length > 0 || manualThr.length > 0;
-            const hasBar = numericVal !== null && hasThresholds;
-
-            // negrita automática para filas sin barra
+            const barModel = buildBarModel(row.label, finalValue, row.scale);
+            
+            const hasBar = barModel !== null;
             const isBold = !hasBar;
+            
+            let minVal = 0, maxVal = 1;
+            const resolvedThresholds: number[] = [];
+            let numericVal: number | null = null;
+            let isNumeric = typeof finalValue === "number";
 
-            // min / max dinámico por fila
-            let dynamicMin = hasBar ? numericVal! : 0;
-            let dynamicMax = hasBar ? numericVal! : 0;
-
-            if (row.target != null  && !isNaN(row.target))  {
-                if (row.target  > dynamicMax) dynamicMax = row.target;
-                if (row.target  < dynamicMin) dynamicMin = row.target;
+            if (hasBar && barModel) {
+                minVal = barModel.min;
+                maxVal = barModel.max;
+                numericVal = barModel.position;
+                
+                for (let i = 1; i < barModel.segments.length; i++) {
+                    resolvedThresholds.push(barModel.segments[i].from);
+                }
             }
-            if (row.dataMax != null && !isNaN(row.dataMax) && row.dataMax > dynamicMax) dynamicMax = row.dataMax;
-            if (row.dataMin != null && !isNaN(row.dataMin) && row.dataMin < dynamicMin) dynamicMin = row.dataMin;
 
-            row.dataThresholds.forEach(t => { if (!isNaN(t)) { if (t > dynamicMax) dynamicMax = t; if (t < dynamicMin) dynamicMin = t; } });
-            manualThr.forEach(t =>          { if (!isNaN(t)) { if (t > dynamicMax) dynamicMax = t; if (t < dynamicMin) dynamicMin = t; } });
+            const config = VARIABLE_CONFIG[(row.label || "").toLowerCase().trim()];
+            const higherIsBetter = config?.higherIsBetter === true;
+            
+            const rowAscending = higherIsBetter ? !ascending : ascending;
+            const rowInvertColors = higherIsBetter ? !invertColors : invertColors;
 
-            if (dynamicMax === dynamicMin) dynamicMax = dynamicMin + 1;
-
-            let minVal = (s.scale.minValue.value != null && s.scale.minValue.value !== ("" as any))
-                ? Number(s.scale.minValue.value)
-                : (row.dataMin != null && !isNaN(row.dataMin) ? row.dataMin : dynamicMin);
-            let maxVal = (s.scale.maxValue.value != null && s.scale.maxValue.value !== ("" as any))
-                ? Number(s.scale.maxValue.value)
-                : (row.dataMax != null && !isNaN(row.dataMax) ? row.dataMax : dynamicMax);
-            if (minVal >= maxVal) maxVal = minVal + 1;
-
-            // Umbrales por fila
-            const dataThrs = row.dataThresholds.filter(t => !isNaN(t));
-            const tSet     = new Set<number>();
-            dataThrs.forEach(t => tSet.add(t));
-            manualThr.forEach(t => tSet.add(t));
-            const resolvedThresholds = Array.from(tSet).sort((a, b) => a - b);
-
-            const segments = this.buildSegments(minVal, maxVal, ascending, invertColors, resolvedThresholds);
+            const segments = this.buildSegments(minVal, maxVal, rowAscending, rowInvertColors, resolvedThresholds);
 
             if (segments.length > maxSegmentsFound.length) {
                 maxSegmentsFound = segments;
             }
 
-            const scaleDomain = ascending ? [minVal, maxVal] : [maxVal, minVal];
+            const scaleDomain = rowAscending ? [minVal, maxVal] : [maxVal, minVal];
             const scaleX = d3.scaleLinear().domain(scaleDomain).range([0, barColW]).clamp(true);
 
             const markerOverflow = Math.max(0, (Math.max(barH + 8, markerHeightVal) - barH) / 2);
@@ -445,11 +447,31 @@ export class Visual implements IVisual {
                 .text(row.label);
 
             if (hasValue) {
-                // Col 2 — Valor: muestra el texto original si es categórico,
-                // o el número formateado si es numérico directo.
-                const displayedValue = isNumeric
-                    ? parseFloat((finalValue as number).toFixed(2)).toString()
-                    : String(finalValue);  // texto original del diccionario
+                // Col 2 — Valor: muestra la etiqueta compuesta o el formated string
+                let displayedText = "";
+                if (hasBar) {
+                    if (isNumeric) {
+                        displayedText = Math.floor(finalValue as number).toString();
+                        displayedText = `${displayedText}${unit}`;
+                    } else if (barModel && barModel.label) {
+                        displayedText = barModel.label;
+                    } else {
+                        displayedText = typeof finalValue === "string" ? finalValue.replace(/&/g, "/") : String(finalValue);
+                    }
+                } else {
+                	const parsedNum = Number(finalValue);
+                    if (finalValue != null && finalValue !== "" && !isNaN(parsedNum)) {
+                        const ratingStr = mapNumberToRating(parsedNum);
+                        if (ratingStr) {
+                            displayedText = ratingStr;
+                        } else {
+                            displayedText = Math.floor(parsedNum).toString();
+                            displayedText = `${displayedText}${unit}`;
+                        }
+                    } else {
+                        displayedText = typeof finalValue === "string" ? finalValue.replace(/&/g, "/") : String(finalValue);
+                    }
+                }
 
                 rowG.append("text")
                     .attr("x", labelColW + valueColW / 2)
@@ -459,19 +481,29 @@ export class Visual implements IVisual {
                     .attr("font-size", `${valueFontSize}px`)
                     .attr("font-weight", isBold ? "bold" : "normal")
                     .attr("fill", valueFontColor)
-                    .text(isNumeric ? `${displayedValue}${unit}` : displayedValue);
+                    .text(displayedText);
 
                 if (hasBar) {
                     // Col 3 — Barra: usa numericVal (número directo o mapeado del diccionario)
                     const barG = rowG.append("g")
                         .attr("transform", `translate(${labelColW + valueColW}, ${topPad})`);
 
+                    const tItems: powerbi.extensibility.VisualTooltipDataItem[] = [];
+                    if (row.valueNumeric != null) {
+                        tItems.push({ displayName: row.measureName || "Value", value: String(row.valueNumeric) + unit });
+                    } else if (row.valueText != null) {
+                        tItems.push({ displayName: row.measureName || "Category", value: row.valueText.replace(/&/g, "/") });
+                    }
+                    if (row.scale != null) {
+                        tItems.push({ displayName: "Scale / Impact", value: String(row.scale) });
+                    }
+
                     this.drawVectorBar(
                         barG, numericVal!, segments, resolvedThresholds, scaleX,
                         barH, radius, markerColor, markerHeightVal, markerThickness,
                         showLabel, showTicks, unit, valueFontSize, valueFontColor,
                         minVal, maxVal, row.target, targetColor, targetWidth, showTarget,
-                        row.measureName
+                        displayedText, tItems
                     );
                 }
             }
@@ -585,7 +617,7 @@ export class Visual implements IVisual {
     private drawVectorBar(
         group: d3.Selection<SVGGElement, unknown, null, undefined>,
         value: number,
-        segments: Segment[],
+        segments: SegmentVisual[],
         thresholdValues: number[],
         scaleX: d3.ScaleLinear<number, number>,
         barH: number,
@@ -604,7 +636,8 @@ export class Visual implements IVisual {
         targetColor?: string,
         targetWidth?: number,
         showTarget?: boolean,
-        measureName?: string
+        markerTextLabel?: string,
+        tooltipItems?: powerbi.extensibility.VisualTooltipDataItem[]
     ): void {
 
         radius = 0;
@@ -643,7 +676,7 @@ export class Visual implements IVisual {
             .attr("fill", "transparent").attr("stroke", "none").attr("stroke-width", 0);
 
         const markerPos = scaleX(value);
-        const displayedValue = !isNaN(value) ? parseFloat(value.toFixed(2)).toString() : String(value);
+        const markerTextValue = markerTextLabel !== undefined ? markerTextLabel : (!isNaN(value) ? parseFloat(value.toFixed(2)).toString() + unit : String(value));
 
         const actualMarkerHeight = Math.max(barH + 8, markerHeightVal);
         const topOverflow        = (actualMarkerHeight - barH) / 2;
@@ -659,12 +692,12 @@ export class Visual implements IVisual {
             .attr("width", 30).attr("height", actualMarkerHeight)
             .attr("fill", "transparent").style("pointer-events", "all");
 
-        if (this.host.tooltipService && measureName) {
+        if (this.host.tooltipService && tooltipItems && tooltipItems.length > 0) {
             const showTooltip = (event: MouseEvent) => {
                 this.host.tooltipService.show({
                     coordinates: [event.clientX, event.clientY],
                     isTouchEvent: false,
-                    dataItems: [{ displayName: measureName, value: `${displayedValue}${unit}` }],
+                    dataItems: tooltipItems,
                     identities: []
                 });
             };
@@ -687,9 +720,9 @@ export class Visual implements IVisual {
                 .attr("x", markerPos).attr("y", -topOverflow - 6)
                 .attr("font-size", `${Math.max(9, fontSize - 2)}px`)
                 .attr("fill", fontColor).attr("text-anchor", "middle")
-                .text(`${displayedValue}${unit}`);
+                .text(markerTextValue);
 
-            const textLen = (`${displayedValue}${unit}`.length * (fontSize - 2) * 0.6) + 4;
+            const textLen = (markerTextValue.length * (fontSize - 2) * 0.6) + 4;
             group.insert("rect", "text:last-child")
                 .attr("x", markerPos - textLen / 2).attr("y", -topOverflow - 6 - (fontSize - 2))
                 .attr("width", textLen).attr("height", fontSize)
@@ -713,8 +746,6 @@ export class Visual implements IVisual {
     }
 
     public getFormattingModel(): powerbi.visuals.FormattingModel {
-        this.settings.thresholdsConfig.updateVisibleSlices(false);
-
         const n = this.lastSegments.length;
         this.settings.segmentColors.numColors.value = n;
         this.settings.segmentColors.updateVisibleSlices();

@@ -5,13 +5,11 @@ import FormattingSettingsSlice = formattingSettings.Slice;
 import FormattingSettingsModel = formattingSettings.Model;
 
 export class ScaleSettingsCard extends FormattingSettingsCard {
-    minValue = new formattingSettings.NumUpDown({ name: "minValue", displayName: "Valor mínimo (Inicio de gráfica)", value: null as any });
-    maxValue = new formattingSettings.NumUpDown({ name: "maxValue", displayName: "Valor máximo (Fin de gráfica)", value: null as any });
     unit = new formattingSettings.TextInput({ name: "unit", displayName: "Unidad", value: "", placeholder: "e.g. %" });
 
     name = "scaleSettings";
     displayName = "Límites y Escala";
-    slices = [this.minValue, this.maxValue, this.unit];
+    slices = [this.unit];
 }
 
 export class OrderSettingsCard extends FormattingSettingsCard {
@@ -21,56 +19,6 @@ export class OrderSettingsCard extends FormattingSettingsCard {
     name = "orderSettings";
     displayName = "Orden de Segmentos";
     slices = [this.ascending, this.invertColors];
-}
-
-export class ThresholdsCard extends FormattingSettingsCard {
-    numThresholds = new formattingSettings.NumUpDown({
-        name: "numThresholds",
-        displayName: "¿Cuántos umbrales manuales quieres?",
-        value: 0,
-        options: {
-            minValue: { type: powerbi.visuals.ValidatorType.Min, value: 0  },
-            maxValue: { type: powerbi.visuals.ValidatorType.Max, value: 20 }
-        }
-    });
-    t1  = new formattingSettings.NumUpDown({ name: "t1",  displayName: "Umbral 1",  value: null as any });
-    t2  = new formattingSettings.NumUpDown({ name: "t2",  displayName: "Umbral 2",  value: null as any });
-    t3  = new formattingSettings.NumUpDown({ name: "t3",  displayName: "Umbral 3",  value: null as any });
-    t4  = new formattingSettings.NumUpDown({ name: "t4",  displayName: "Umbral 4",  value: null as any });
-    t5  = new formattingSettings.NumUpDown({ name: "t5",  displayName: "Umbral 5",  value: null as any });
-    t6  = new formattingSettings.NumUpDown({ name: "t6",  displayName: "Umbral 6",  value: null as any });
-    t7  = new formattingSettings.NumUpDown({ name: "t7",  displayName: "Umbral 7",  value: null as any });
-    t8  = new formattingSettings.NumUpDown({ name: "t8",  displayName: "Umbral 8",  value: null as any });
-    t9  = new formattingSettings.NumUpDown({ name: "t9",  displayName: "Umbral 9",  value: null as any });
-    t10 = new formattingSettings.NumUpDown({ name: "t10", displayName: "Umbral 10", value: null as any });
-    t11 = new formattingSettings.NumUpDown({ name: "t11", displayName: "Umbral 11", value: null as any });
-    t12 = new formattingSettings.NumUpDown({ name: "t12", displayName: "Umbral 12", value: null as any });
-    t13 = new formattingSettings.NumUpDown({ name: "t13", displayName: "Umbral 13", value: null as any });
-    t14 = new formattingSettings.NumUpDown({ name: "t14", displayName: "Umbral 14", value: null as any });
-    t15 = new formattingSettings.NumUpDown({ name: "t15", displayName: "Umbral 15", value: null as any });
-    t16 = new formattingSettings.NumUpDown({ name: "t16", displayName: "Umbral 16", value: null as any });
-    t17 = new formattingSettings.NumUpDown({ name: "t17", displayName: "Umbral 17", value: null as any });
-    t18 = new formattingSettings.NumUpDown({ name: "t18", displayName: "Umbral 18", value: null as any });
-    t19 = new formattingSettings.NumUpDown({ name: "t19", displayName: "Umbral 19", value: null as any });
-    t20 = new formattingSettings.NumUpDown({ name: "t20", displayName: "Umbral 20", value: null as any });
-
-    name = "thresholdsSettings";
-    displayName = "Configurar Umbrales Manuales";
-    slices = [this.numThresholds, this.t1, this.t2, this.t3, this.t4, this.t5, this.t6, this.t7, this.t8, this.t9, this.t10, this.t11, this.t12, this.t13, this.t14, this.t15, this.t16, this.t17, this.t18, this.t19, this.t20];
-
-    public updateVisibleSlices(hasDynamic: boolean) {
-        const count = Math.max(0, Math.min(20, this.numThresholds.value ?? 0));
-        const allThresholds = [this.t1, this.t2, this.t3, this.t4, this.t5, this.t6, this.t7, this.t8, this.t9, this.t10, this.t11, this.t12, this.t13, this.t14, this.t15, this.t16, this.t17, this.t18, this.t19, this.t20];
-        this.slices = [this.numThresholds, ...allThresholds.slice(0, count)];
-    }
-
-    public getActiveThresholdsOrNulls(): (number | null)[] {
-        const count = Math.max(0, Math.min(20, this.numThresholds.value ?? 0));
-        const allThresholds = [this.t1, this.t2, this.t3, this.t4, this.t5, this.t6, this.t7, this.t8, this.t9, this.t10, this.t11, this.t12, this.t13, this.t14, this.t15, this.t16, this.t17, this.t18, this.t19, this.t20];
-        return allThresholds
-            .slice(0, count)
-            .map(t => typeof t.value === 'number' ? t.value : null);
-    }
 }
 
 export class TargetSettingsCard extends FormattingSettingsCard {
@@ -246,7 +194,6 @@ export class SegmentColorsCard extends FormattingSettingsCard {
 export class VisualSettings extends FormattingSettingsModel {
     scale            = new ScaleSettingsCard();
     order            = new OrderSettingsCard();
-    thresholdsConfig = new ThresholdsCard();
     segmentColors    = new SegmentColorsCard();
     marker           = new MarkerSettingsCard();
     bar              = new BarSettingsCard();
@@ -255,5 +202,5 @@ export class VisualSettings extends FormattingSettingsModel {
     groupHeader      = new GroupHeaderCard();
     kpiPanel         = new KpiPanelCard();
 
-    cards = [this.scale, this.thresholdsConfig, this.bar, this.order, this.marker, this.segmentColors, this.labels, this.groupHeader, this.target, this.kpiPanel];
+    cards = [this.scale, this.bar, this.order, this.marker, this.segmentColors, this.labels, this.groupHeader, this.target, this.kpiPanel];
 }

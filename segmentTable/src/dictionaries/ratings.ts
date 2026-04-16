@@ -1,31 +1,27 @@
 export const RATINGS_MAP: Record<string, number> = {
-    "AAA": 1,
-    "AA+": 2,
-    "AA": 3,
-    "AA-": 4,
-    "A+": 5,
-    "A": 6,
-    "A-": 7,
-    "BBB+": 8,
-    "BBB": 9,
-    "BBB-": 10,
-    "BB+": 11,
-    "BB": 12,
-    "BB-": 13,
-    "B+": 14,
-    "B": 15,
-    "B-": 16,
-    "CCC+": 17,
-    "CCC": 18,
-    "CCC-": 19,
-    "CC": 20,
-    "C": 21,
-    "D": 22,
-    "SD": 23,
-    "NR": 24
+    "aaa": 1,
+    "aa+": 1.5,
+    "aa": 2,
+    "aa-": 2.5,
+    "a+": 3,
+    "a": 3.5,
+    "a-": 4,
+    "bbb+": 4.5,
+    "bbb": 5,
+    "bbb-": 5.5,
+    "bb+": 6,
+    "bb": 6.5,
+    "bb-": 7,
+    "b+": 7.5,
+    "b": 8,
+    "b-": 8.5,
+    "ccc+": 9,
+    "ccc": 9.5,
+    "ccc-": 10
 };
 
-// export function mapRatingToNumber(text: string): number | null {
-//     const key = text.trim().toUpperCase();
-//     return key in RATINGS_MAP ? RATINGS_MAP[key] : null;
-// }
+export function mapNumberToRating(val: number): string | null {
+    const rounded = Math.floor(val * 2) / 2;
+    const entry = Object.entries(RATINGS_MAP).find(([key, mappedVal]) => mappedVal === rounded);
+    return entry ? entry[0] : null;
+}
