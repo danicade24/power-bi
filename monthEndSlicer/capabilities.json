@@ -1,0 +1,41 @@
+{
+    "dataRoles": [
+        {
+            "displayName": "Date",
+            "name": "date",
+            "kind": "Grouping"
+        }
+    ],
+    "objects": {
+        "slicerSettings": {
+            "displayName": "Slicer settings",
+            "properties": {
+                "style": {
+                    "displayName": "Style",
+                    "type": {
+                        "enumeration": [
+                            { "displayName": "Between", "value": "Between" },
+                            { "displayName": "Before", "value": "Before" },
+                            { "displayName": "After", "value": "After" }
+                        ]
+                    }
+                }
+            }
+        }
+    },
+    "dataViewMappings": [
+        {
+            "categorical": {
+                "categories": {
+                    "for": {
+                        "in": "date"
+                    },
+                    "dataReductionAlgorithm": {
+                        "top": {}
+                    }
+                }
+            }
+        }
+    ],
+    "privileges": []
+}

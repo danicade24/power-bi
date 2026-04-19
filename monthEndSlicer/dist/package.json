@@ -1,0 +1,17 @@
+{
+		"version": "1.0.0.0",
+		"author": {"name":"developer","email":"developer@example.com"},
+		"resources": [
+			{
+				"resourceId": "rId0",
+				"sourceType": 5,
+				"file": "resources/monthEndSlicer38875D48206B4482B7FB652307EDEECE.pbiviz.json"
+			}
+		],
+		"visual": {"name":"monthEndSlicer","displayName":"monthEndSlicer","guid":"monthEndSlicer38875D48206B4482B7FB652307EDEECE","visualClassName":"Visual","version":"1.0.0.0","description":"Custom Month End Date Slicer","supportUrl":"https://example.com/support","gitHubUrl":"https://example.com/github"},
+		"metadata": {
+			"pbivizjson": {
+				"resourceId": "rId0"
+			}
+		}
+	}
